@@ -19,10 +19,21 @@ func TestShutdownActions_Shutdown(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-	sa := safedown.ShutdownActions{}
+	sa := safedown.NewShutdownActions()
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.Shutdown()
+}
+
+func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions()
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
 	sa.Shutdown()
 }
 

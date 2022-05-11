@@ -5,8 +5,17 @@ import (
 )
 
 type ShutdownActions struct {
-	actions []func()   // actions contains the functions to be run on shutdown
-	mutex   sync.Mutex // mutex prevents clashes when shared across goroutines
+	actions []func() // actions contains the functions to be run on shutdown
+
+	shutdownOnce *sync.Once  // shutdownOnce is used to ensure that the shutdown method is idempotent
+	mutex        *sync.Mutex // mutex prevents clashes when shared across goroutines
+}
+
+func NewShutdownActions() *ShutdownActions {
+	return &ShutdownActions{
+		shutdownOnce: &sync.Once{},
+		mutex:        &sync.Mutex{},
+	}
 }
 
 func (sa *ShutdownActions) AddActions(actions ...func()) {
@@ -20,16 +29,13 @@ func (sa *ShutdownActions) Shutdown() {
 }
 
 func (sa *ShutdownActions) shutdown() {
-	/*
-		Shutdown logic was separated into its own method in anticipation that
-		there will be multiple ways of triggering the shutdown actions.
-	*/
+	sa.shutdownOnce.Do(func() {
+		sa.mutex.Lock()
+		actions := sa.actions[:]
+		sa.mutex.Unlock()
 
-	sa.mutex.Lock()
-	actions := sa.actions[:]
-	sa.mutex.Unlock()
-
-	for i := range actions {
-		actions[i]()
-	}
+		for i := range actions {
+			actions[i]()
+		}
+	})
 }
