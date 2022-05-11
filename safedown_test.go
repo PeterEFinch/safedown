@@ -2,6 +2,8 @@ package safedown_test
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -11,6 +13,18 @@ import (
 )
 
 // region Tests
+
+func TestShutdownActions_ShutdownOnSignal(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sendOSSignalToSelf(os.Interrupt)
+}
 
 // TestShutdownActions_Shutdown tests that all shutdown actions are performed
 // in order: first in, first done.
@@ -99,6 +113,13 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int
 		atomic.AddInt32(counter, 1)
 		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
 		wg.Done()
+	}
+}
+
+func sendOSSignalToSelf(signal os.Signal) {
+	process := os.Process{Pid: os.Getpid()}
+	if err := process.Signal(signal); err != nil {
+		panic(fmt.Sprintf("test failed: unable to send signal (%v) to self", signal))
 	}
 }
 

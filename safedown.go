@@ -1,6 +1,9 @@
 package safedown
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
 	"sync"
 )
 
@@ -29,16 +32,27 @@ type ShutdownActions struct {
 }
 
 // NewShutdownActions initialises shutdown actions.
-func NewShutdownActions(order Order) *ShutdownActions {
+//
+// The parameter order determines the order the actions will be performed
+// relative to the order they are added.
+//
+// Including signals will start a go routine which will listen for the given
+// signals. If one of the signals is received the Shutdown method will be
+// called. Unlike signal.Notify, using zero signals will listen to no signals
+// instead of all.
+func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 	if order >= invalidOrderValue {
 		panic("shutdown actions initialised with invalid order")
 	}
 
-	return &ShutdownActions{
-		order:        order,
+	sa := &ShutdownActions{
 		shutdownOnce: &sync.Once{},
 		mutex:        &sync.Mutex{},
+		order:        order,
 	}
+
+	sa.startListening(signals)
+	return sa
 }
 
 // AddActions adds actions that will be performed when Shutdown is called.
@@ -76,4 +90,22 @@ func (sa *ShutdownActions) shutdown() {
 			actions[i]()
 		}
 	})
+}
+
+func (sa *ShutdownActions) startListening(signals []os.Signal) {
+	if len(signals) == 0 {
+		return
+	}
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, signals...)
+
+	go func() {
+		sig := <-signalCh
+		fmt.Println(sig)
+		signal.Stop(signalCh)
+		close(signalCh)
+
+		sa.shutdown()
+	}()
 }
