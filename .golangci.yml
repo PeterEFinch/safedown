@@ -1,0 +1,23 @@
+run:
+  go: 1.17 # Using go 1.17 to avoid issues with generics
+  modules-download-mode: readonly
+
+linters:
+  disable-all: true
+  enable:
+    - deadcode # Detects unused code
+    - errcheck # Detects unchecked errors
+    - exportloopref # Detects scope issues
+    - gochecknoglobals # Detects global variables
+    - gocritic # Activated to make code cleaner
+    - gosimple # Activated to make code simpler
+    - govet # Detects suspicious constructs
+    - ineffassign # Detects unused assigned variables
+    - staticcheck # Static analysis checks
+    - structcheck # Finds unused struct fields
+    - typecheck # type-check
+    - unused # Detects unused constants, variables, functions and types
+    - varcheck # Detects unused global variables and constants
+
+service:
+  golangci-lint-version: 1.45.x
