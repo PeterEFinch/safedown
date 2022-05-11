@@ -1,0 +1,69 @@
+name: go
+
+# Controls when the workflows will run
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # The 'test' job runs all the go tests
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Test
+        run: go test -v -timeout 10s ./...
+
+  # The 'examples' package builds all the examples
+  examples:
+    name: examples
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Change to examples module
+        run: cd ./examples
+
+      - name: Build examples
+        working-directory: ./examples
+        run: go build -v -o ./outputs/ ./...
+
+  # The 'lint' job runs the linter
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17 # Using go version 1.17 to avoid issues with generics
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.45
