@@ -83,7 +83,7 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int
 	wg.Add(1)
 	return func() {
 		atomic.AddInt32(counter, 1)
-		assertCounterValue(t, counter, expectedValue, "")
+		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
 		wg.Done()
 	}
 }
