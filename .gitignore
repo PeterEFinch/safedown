@@ -1,0 +1,16 @@
+# Dependency directories
+vendor/
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Mac objects
+*.DS_Store
+
+# IDEs
+.idea/
+.vscode/
