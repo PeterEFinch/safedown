@@ -9,8 +9,8 @@ import (
 type Order uint8
 
 const (
-	FirstInFirstDone  Order = iota // FirstInFirstDone means that actions added first will be performed first on shutdown.
-	FirstInLastDone                // FirstInLastDone means that actions added first will be performed last on shutdown.
+	FirstInLastDone   Order = iota // FirstInLastDone means that actions added first will be performed last on shutdown.
+	FirstInFirstDone               // FirstInFirstDone means that actions added first will be performed first on shutdown.
 	invalidOrderValue              // invalidOrderValue is a constant used to validate the value of the order.
 )
 
