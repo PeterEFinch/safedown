@@ -13,16 +13,30 @@ import (
 // region Tests
 
 // TestShutdownActions_Shutdown tests that all shutdown actions are performed
-// in order.
-func TestShutdownActions_Shutdown(t *testing.T) {
+// in order: first in, first done.
+func TestShutdownActions_Shutdown_FirstInFirstDone(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-	sa := safedown.NewShutdownActions()
+	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.Shutdown()
+}
+
+// TestShutdownActions_Shutdown tests that all shutdown actions are performed
+// in order: first in, last done.
+func TestShutdownActions_Shutdown_FirstInLastDone(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.Shutdown()
 }
 
@@ -31,7 +45,7 @@ func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-	sa := safedown.NewShutdownActions()
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.Shutdown()
 	sa.Shutdown()
