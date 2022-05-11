@@ -20,6 +20,7 @@ func TestShutdownActions_ShutdownOnSignal(t *testing.T) {
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
+	sa.SetOnSignal(createTestableOnSignalAction(t, wg, os.Interrupt))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
@@ -77,6 +78,15 @@ func assertCounterValue(t *testing.T, counter *int32, expectedValue int32, scena
 	t.FailNow()
 }
 
+func assertSignalEquality(t *testing.T, actual, expected os.Signal) {
+	if actual == expected {
+		return
+	}
+
+	t.Logf("mismatch between expected signal (%d) and actual signal (%d) received", expected, actual)
+	t.FailNow()
+}
+
 // assertWaitGroupDoneBeforeDeadline is a way to quickly check that a test
 // does not wait for a long time.
 func assertWaitGroupDoneBeforeDeadline(t *testing.T, wg *sync.WaitGroup, deadline time.Time) {
@@ -112,6 +122,14 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int
 	return func() {
 		atomic.AddInt32(counter, 1)
 		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
+		wg.Done()
+	}
+}
+
+func createTestableOnSignalAction(t *testing.T, wg *sync.WaitGroup, expectedSignal os.Signal) func(os.Signal) {
+	wg.Add(1)
+	return func(signal os.Signal) {
+		assertSignalEquality(t, signal, expectedSignal)
 		wg.Done()
 	}
 }

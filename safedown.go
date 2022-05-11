@@ -23,8 +23,9 @@ const (
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
 type ShutdownActions struct {
-	actions []func() // actions contains the functions to be called on shutdown
-	order   Order    // order represents the order actions will be performed on shutdown
+	actions      []func()        // actions contains the functions to be called on shutdown
+	onSignalFunc func(os.Signal) // onSignalFunc gets called if a signal is received
+	order        Order           // order represents the order actions will be performed on shutdown
 
 	mutex             *sync.Mutex   // mutex prevents clashes when shared across goroutines
 	shutdownOnce      *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
@@ -70,12 +71,35 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	sa.mutex.Unlock()
 }
 
+// SetOnSignal sets a function that will be called if a signal is received.
+func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
+	sa.mutex.Lock()
+	sa.onSignalFunc = onSignal
+	sa.mutex.Unlock()
+}
+
 // Shutdown will perform all actions that have been added.
 //
 // This is an idempotent method and successive calls will have no affect.
 func (sa *ShutdownActions) Shutdown() {
 	sa.shutdown()
 	sa.stopListening()
+}
+
+func (sa *ShutdownActions) onSignal(received os.Signal) {
+	if received == nil {
+		return
+	}
+
+	sa.mutex.Lock()
+	onSignal := sa.onSignalFunc
+	sa.mutex.Unlock()
+
+	if onSignal == nil {
+		return
+	}
+
+	onSignal(received)
 }
 
 func (sa *ShutdownActions) shutdown() {
@@ -115,7 +139,7 @@ func (sa *ShutdownActions) startListening(signals []os.Signal) {
 		signal.Stop(signalCh)
 		close(signalCh)
 
-		_ = received // TODO: Pass this to a function so it can be recorded later
+		sa.onSignal(received)
 		sa.Shutdown()
 	}()
 }
