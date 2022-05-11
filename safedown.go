@@ -47,7 +47,7 @@ func (sa *ShutdownActions) Shutdown() {
 func (sa *ShutdownActions) shutdown() {
 	sa.shutdownOnce.Do(func() {
 		sa.mutex.Lock()
-		actions := sa.actions[:]
+		actions := sa.actions[:len(sa.actions)]
 		sa.mutex.Unlock()
 
 		for i := range actions {
