@@ -1,7 +1,6 @@
 package safedown
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -27,8 +26,10 @@ type ShutdownActions struct {
 	actions []func() // actions contains the functions to be called on shutdown
 	order   Order    // order represents the order actions will be performed on shutdown
 
-	shutdownOnce *sync.Once  // shutdownOnce is used to ensure that the shutdown method is idempotent
-	mutex        *sync.Mutex // mutex prevents clashes when shared across goroutines
+	mutex             *sync.Mutex   // mutex prevents clashes when shared across goroutines
+	shutdownOnce      *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
+	stopListeningCh   chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
+	stopListeningOnce *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
 }
 
 // NewShutdownActions initialises shutdown actions.
@@ -46,9 +47,11 @@ func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 	}
 
 	sa := &ShutdownActions{
-		shutdownOnce: &sync.Once{},
-		mutex:        &sync.Mutex{},
-		order:        order,
+		mutex:             &sync.Mutex{},
+		order:             order,
+		shutdownOnce:      &sync.Once{},
+		stopListeningCh:   make(chan struct{}),
+		stopListeningOnce: &sync.Once{},
 	}
 
 	sa.startListening(signals)
@@ -72,6 +75,7 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 // This is an idempotent method and successive calls will have no affect.
 func (sa *ShutdownActions) Shutdown() {
 	sa.shutdown()
+	sa.stopListening()
 }
 
 func (sa *ShutdownActions) shutdown() {
@@ -94,6 +98,7 @@ func (sa *ShutdownActions) shutdown() {
 
 func (sa *ShutdownActions) startListening(signals []os.Signal) {
 	if len(signals) == 0 {
+		sa.stopListening()
 		return
 	}
 
@@ -101,11 +106,22 @@ func (sa *ShutdownActions) startListening(signals []os.Signal) {
 	signal.Notify(signalCh, signals...)
 
 	go func() {
-		sig := <-signalCh
-		fmt.Println(sig)
+		var received os.Signal
+		select {
+		case <-sa.stopListeningCh:
+		case received = <-signalCh:
+		}
+
 		signal.Stop(signalCh)
 		close(signalCh)
 
-		sa.shutdown()
+		_ = received // TODO: Pass this to a function so it can be recorded later
+		sa.Shutdown()
 	}()
+}
+
+func (sa *ShutdownActions) stopListening() {
+	sa.stopListeningOnce.Do(func() {
+		close(sa.stopListeningCh)
+	})
 }
