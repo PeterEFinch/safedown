@@ -56,3 +56,15 @@ func main() {
 	fmt.Println("Finished")
 }
 ```
+
+### F.A.Q. (Fictitiously Asked Questions)
+
+1. *Why is there another VERY similar Safedown?*
+   I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
+   service (while I was an employee), which I finally put inside its
+   own [Graphmasters repository](github.com/Graphmasters/safedown) (which I as of writing this I still maintain).
+   Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement my own
+   version from scratch with ideas from the original version because I wanted to.
+
+   It doesn't really matter which version you used as both version are very similar. The Graphmasters version is stable
+   and used in production microservices. This version currently has a few additional features.
