@@ -12,6 +12,145 @@ import (
 	"github.com/PeterEFinch/safedown"
 )
 
+// region Examples
+
+// Example_withSignalReceived demonstrates how setting up the safedown's
+// shutdown actions works when a signal is received.
+func Example_withSignalReceived() {
+	// This will send an interrupt signal after a second to simulate a signal
+	// being sent from the outside.
+	go func(pid int) {
+		time.Sleep(time.Second)
+		process := os.Process{Pid: pid}
+		if err := process.Signal(os.Interrupt); err != nil {
+			panic("unable to continue test: could not send signal to process")
+		}
+	}(os.Getpid())
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	defer sa.Shutdown()
+	sa.SetOnSignal(func(signal os.Signal) {
+		fmt.Printf("Signal received: %s\n", signal.String())
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sa.AddActions(cancel)
+
+	fmt.Println("Processing starting")
+	t := time.After(2 * time.Second)
+	select {
+	case <-ctx.Done():
+		fmt.Println("Context cancelled")
+	case <-t:
+		fmt.Println("Ticker ticked")
+	}
+	fmt.Println("Finished")
+
+	// Output:
+	// Processing starting
+	// Signal received: interrupt
+	// Context cancelled
+	// Finished
+}
+
+// Example_withoutSignalReceived demonstrates how setting up the safedown's
+// shutdown actions works when no signal is received (and the program can
+// terminate of its own accord).
+func Example_withoutSignalReceived() {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	defer sa.Shutdown()
+	sa.SetOnSignal(func(signal os.Signal) {
+		fmt.Printf("Signal received: %s\n", signal.String())
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sa.AddActions(cancel)
+
+	fmt.Println("Processing starting")
+	t := time.After(2 * time.Second)
+	select {
+	case <-ctx.Done():
+		fmt.Println("Context cancelled")
+	case <-t:
+		fmt.Println("Ticker ticked")
+	}
+	fmt.Println("Finished")
+
+	// Output:
+	// Processing starting
+	// Ticker ticked
+	// Finished
+}
+
+// Example_shutdown_firstInFirstDone demonstrates the "first in, first done"
+// order.
+func Example_shutdown_firstInFirstDone() {
+	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone)
+
+	sa.AddActions(func() {
+		fmt.Println("The first action added will be done first ...")
+	})
+	sa.AddActions(func() {
+		fmt.Println("... and the last action added will be done last.")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The first action added will be done first ...
+	// ... and the last action added will be done last.
+}
+
+// Example_shutdown_firstInLastDone demonstrates the "first in, last done"
+// order.
+func Example_shutdown_firstInLastDone() {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done last.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done last.
+}
+
+// Example_postShutdownStrategy demonstrates how to set a post shutdown strategy
+// and its consequences.
+func Example_postShutdownStrategy() {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
+	sa.SetPostShutdownStrategy(safedown.PerformCoordinately)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done after that.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	sa.AddActions(func() {
+		fmt.Println("The action added after shutdown is also done (provided we wait a little).")
+		wg.Done()
+	})
+	wg.Wait()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done after that.
+	// The action added after shutdown is also done (provided we wait a little).
+}
+
+// endregion
+
 // region Tests
 
 // TestShutdownActions_Shutdown tests that all shutdown actions are performed
