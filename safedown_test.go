@@ -55,6 +55,21 @@ func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_Shutdown_postShutdownAction tests any action after the
+// shutdown actions have been triggered will not be performed.
+func TestShutdownActions_Shutdown_postShutdownAction(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, -1))
+	wg.Done()
+}
+
 // TestShutdownActions_Shutdown_withListening tests that the shutdown actions
 // can still be shut down manually while listening for signals.
 func TestShutdownActions_Shutdown_withListening(t *testing.T) {
