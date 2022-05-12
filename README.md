@@ -66,7 +66,7 @@ func main() {
 
 2. *What order should I used?*
    First in, last done order is most commonly used because the first things create are usually the last ones that need
-   tearing down. This matches to view that safedown is like defer but graceful and coordinated.
+   tearing down. This matches the view that safedown is like defer but graceful and coordinated.
 
 3. *What OSes has this been test on?*
    The tests have been run locally on macOS Monterey and on ubuntu in the github actions. It has not been tested on
@@ -76,14 +76,14 @@ func main() {
    This repository is intended to be a zero-dependency library. This makes it easier to maintain and prevents adding
    external vulnerabilities or bugs.
 
-6. *Why is there no logging?*
+5. *Why is there no logging?*
    There is no convention when it comes to logging, so it was considered best to avoid it. The code is simple enough
    that it seems unnecessary.
 
-7. *Can I use this in mircoservices?*
+6. *Can I use this in mircoservices?*
    Yes. This was original designed to ensure graceful shutdown in microservices.
 
-8. *Why is there another VERY similar Safedown?*
+7. *Why is there another VERY similar Safedown?*
    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
    service (while I was an employee), which I finally put inside its
    own [Graphmasters repository](github.com/Graphmasters/safedown) (which I as of writing this I still maintain).
