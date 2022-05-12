@@ -82,6 +82,77 @@ func TestShutdownActions_Shutdown_withListening(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_SetPostShutdownStrategy_None tests that no actions will
+// be performed after shutdown has been called.
+func TestShutdownActions_SetPostShutdownStrategy_None(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.SetPostShutdownStrategy(safedown.DoNothing) // This is the default strategy
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, -1))
+	wg.Done()
+}
+
+// TestShutdownActions_SetPostShutdownStrategy_PerformCoordinately tests
+// that actions can be performed after shutdown has been called in a way that
+// matches the PerformCoordinately description.
+func TestShutdownActions_SetPostShutdownStrategy_PerformCoordinately(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.SetPostShutdownStrategy(safedown.PerformCoordinately)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+
+	// The first action added will start the processing actions and will be the
+	// first to be started. However, due to the delay the other two actions
+	// will be added to a wait list. Due to the order the last will of the two
+	// will be done first.
+
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 5*time.Millisecond))
+	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 5))
+	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
+	time.Sleep(time.Millisecond)
+}
+
+// TestShutdownActions_SetPostShutdownStrategy_PerformCoordinately tests
+// that actions can be performed after shutdown has been called in a way that
+// matches the PerformImmediately description.
+func TestShutdownActions_SetPostShutdownStrategy_PerformImmediately(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.SetPostShutdownStrategy(safedown.PerformImmediately)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+
+	// All actions will start immediately in a go routine. It is a race
+	// condition to determine which will increment the counter first. Due to the
+	// delays/sleeps we obtain the expected values.
+
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 5, 5*time.Millisecond))
+	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
+	time.Sleep(time.Millisecond)
+
+}
+
 // TestShutdownActions_Wait_withShutdown tests that the wait method waits before
 // a shutdown and not after one.
 func TestShutdownActions_Wait_withShutdown(t *testing.T) {
@@ -233,6 +304,20 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int
 		atomic.AddInt32(counter, 1)
 		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
 		wg.Done()
+	}
+}
+
+// createTestableShutdownActionWithDelay creates a testable action
+// using createTestableShutdownAction but adds a delay before the action is
+// performed.
+//
+// This is useful when for testing behaviour that happens asynchronously.
+// Consequently, it is unreliable and is expected to sometimes fail.
+func createTestableShutdownActionWithDelay(t *testing.T, wg *sync.WaitGroup, counter *int32, expectedValue int32, delay time.Duration) func() {
+	action := createTestableShutdownAction(t, wg, counter, expectedValue)
+	return func() {
+		time.Sleep(delay)
+		action()
 	}
 }
 

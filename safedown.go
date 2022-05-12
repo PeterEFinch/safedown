@@ -16,6 +16,16 @@ const (
 	invalidOrderValue              // invalidOrderValue is a constant used to validate the value of the order.
 )
 
+// PostShutdownStrategy represent the strategy that should be applied to action
+// added after shutdown has been triggered.
+type PostShutdownStrategy uint8
+
+const (
+	DoNothing           PostShutdownStrategy = iota // DoNothing means that any action added after shutdown has been trigger will not be done.
+	PerformImmediately                              // PerformImmediately means that any action added after shutdown will be performed immediately.
+	PerformCoordinately                             // PerformCoordinately means that the shutdown actions will ATTEMPT to coordinate these actions as much as possible.
+)
+
 // ShutdownActions represent a set of actions, i.e. functions, that are
 // performed, i.e. the functions are called, when a service or process is
 // shutting down, ending or interrupted.
@@ -23,15 +33,18 @@ const (
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
 type ShutdownActions struct {
-	actions      []func()        // actions contains the functions to be called on shutdown
-	onSignalFunc func(os.Signal) // onSignalFunc gets called if a signal is received
-	order        Order           // order represents the order actions will be performed on shutdown
+	actions      []func()             // actions contains the functions to be called on shutdown
+	order        Order                // order represents the order actions will be performed on shutdown
+	onSignalFunc func(os.Signal)      // onSignalFunc gets called if a signal is received
+	strategy     PostShutdownStrategy // strategy contains the post shutdown strategy
 
-	mutex             *sync.Mutex   // mutex prevents clashes when shared across goroutines
-	shutdownCh        chan struct{} // shutdownCh will be closed when shutdown has been completed
-	shutdownOnce      *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
-	stopListeningCh   chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
-	stopListeningOnce *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
+	mutex               *sync.Mutex   // mutex prevents clashes when shared across goroutines
+	isProcessingActive  bool          // isProcessingActive is true if and only if the stored actions are being performed or just about to be performed
+	isProcessingAllowed bool          // isProcessingAllowed is true if and only if actions can be performed when added (occurs after shutdown has been triggered)
+	shutdownCh          chan struct{} // shutdownCh will be closed when shutdown has been completed
+	shutdownOnce        *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
+	stopListeningCh     chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
+	stopListeningOnce   *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
 }
 
 // NewShutdownActions initialises shutdown actions.
@@ -66,17 +79,50 @@ func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 // There is currently no prescribed behaviour for actions that have been added
 // after the Shutdown method has been called.
 func (sa *ShutdownActions) AddActions(actions ...func()) {
-	// TODO: Include a strategy for adding action after shutdown has been called.
-
 	sa.mutex.Lock()
-	sa.actions = append(sa.actions, actions...)
-	sa.mutex.Unlock()
+	// This is the pre-shutdown phase
+	if !sa.isProcessingAllowed {
+		sa.actions = append(sa.actions, actions...)
+		sa.mutex.Unlock()
+		return
+	}
+
+	// This is the post-shutdown phase i.e. shutdown has been called but not
+	// necessarily completed.
+	switch sa.strategy {
+	case PerformImmediately:
+		sa.mutex.Unlock()
+		go sa.performActions(actions)
+		return
+	case PerformCoordinately:
+		sa.actions = append(sa.actions, actions...)
+		if sa.isProcessingActive {
+			sa.mutex.Unlock()
+			return
+		}
+
+		sa.isProcessingActive = true
+		sa.mutex.Unlock()
+		go sa.performStoredActions()
+		return
+	default:
+		sa.mutex.Unlock()
+		return
+	}
 }
 
 // SetOnSignal sets a function that will be called if a signal is received.
 func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
 	sa.mutex.Lock()
 	sa.onSignalFunc = onSignal
+	sa.mutex.Unlock()
+}
+
+// SetPostShutdownStrategy determines how the actions will be handled after
+// Shutdown has been called or triggered via a signal.
+func (sa *ShutdownActions) SetPostShutdownStrategy(strategy PostShutdownStrategy) {
+	sa.mutex.Lock()
+	sa.strategy = strategy
 	sa.mutex.Unlock()
 }
 
@@ -109,22 +155,51 @@ func (sa *ShutdownActions) onSignal(received os.Signal) {
 	onSignal(received)
 }
 
+func (sa *ShutdownActions) performActions(actions []func()) {
+	if sa.order == FirstInLastDone {
+		for left, right := 0, len(actions)-1; left < right; left, right = left+1, right-1 {
+			actions[left], actions[right] = actions[right], actions[left]
+		}
+	}
+
+	for i := range actions {
+		actions[i]()
+	}
+}
+
+func (sa *ShutdownActions) performStoredActions() {
+	// To avoid this method being called multiple times in concurrent go
+	// routines the boolean isProcessingActive MUST be change from FALSE to TRUE
+	// in a concurrent safe manner prior to calling this method.
+	for {
+		var action func()
+		sa.mutex.Lock()
+		switch {
+		case len(sa.actions) == 0:
+			sa.isProcessingActive = false
+			sa.mutex.Unlock()
+			return
+		case sa.order == FirstInLastDone:
+			action = sa.actions[len(sa.actions)-1]
+			sa.actions = sa.actions[:len(sa.actions)-1]
+		default:
+			action = sa.actions[0]
+			sa.actions = sa.actions[1:]
+		}
+		sa.mutex.Unlock()
+
+		action()
+	}
+}
+
 func (sa *ShutdownActions) shutdown() {
 	sa.shutdownOnce.Do(func() {
 		sa.mutex.Lock()
-		actions := sa.actions[:len(sa.actions)]
+		sa.isProcessingAllowed = true
+		sa.isProcessingActive = true
 		sa.mutex.Unlock()
 
-		if sa.order == FirstInLastDone {
-			for left, right := 0, len(actions)-1; left < right; left, right = left+1, right-1 {
-				actions[left], actions[right] = actions[right], actions[left]
-			}
-		}
-
-		for i := range actions {
-			actions[i]()
-		}
-
+		sa.performStoredActions()
 		close(sa.shutdownCh)
 	})
 }
