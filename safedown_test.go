@@ -42,6 +42,8 @@ func TestShutdownActions_Shutdown_FirstInLastDone(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_Shutdown_idempotent tests that the method Shutdown
+// is idempotent.
 func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
@@ -53,6 +55,8 @@ func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_Shutdown_withListening tests that the shutdown actions
+// can still be shut down manually while listening for signals.
 func TestShutdownActions_Shutdown_withListening(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
@@ -63,6 +67,8 @@ func TestShutdownActions_Shutdown_withListening(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_signalReceived tests that shutdown will be called when
+// a signal is received.
 func TestShutdownActions_signalReceived(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
@@ -75,35 +81,36 @@ func TestShutdownActions_signalReceived(t *testing.T) {
 	sendOSSignalToSelf(os.Interrupt)
 }
 
+// TestShutdownActions_signalReceived_withOnSignal tests that onSignal method
+// and shutdown will be called when a signal is received.
 func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
-	sa.SetOnSignal(createTestableOnSignalAction(t, wg, os.Interrupt))
+	sa.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sendOSSignalToSelf(os.Interrupt)
 }
 
+// TestShutdownActions_multiShutdownActions tests that multiple shutdown actions
+// can be initialised with and shutdown while listen for the same signal.
 func TestShutdownActions_multiShutdownActions(t *testing.T) {
-	deadline := time.Now().Add(time.Second)
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	var counter1 int32
-	wg1 := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg1, deadline)
-	sa1 := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
-	sa1.SetOnSignal(createTestableOnSignalAction(t, wg1, os.Interrupt))
-	sa1.AddActions(createTestableShutdownAction(t, wg1, &counter1, 1))
+	sa1 := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
+	sa1.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
+	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
 
 	var counter2 int32
-	wg2 := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg2, deadline)
-	sa2 := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
-	sa2.SetOnSignal(createTestableOnSignalAction(t, wg2, os.Interrupt))
-	sa2.AddActions(createTestableShutdownAction(t, wg2, &counter2, 1))
+	sa2 := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
+	sa2.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
+	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
 
 	sendOSSignalToSelf(os.Interrupt)
 }
@@ -168,7 +175,7 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int
 	}
 }
 
-func createTestableOnSignalAction(t *testing.T, wg *sync.WaitGroup, expectedSignal os.Signal) func(os.Signal) {
+func createTestableOnSignalFunction(t *testing.T, wg *sync.WaitGroup, expectedSignal os.Signal) func(os.Signal) {
 	wg.Add(1)
 	return func(signal os.Signal) {
 		assertSignalEquality(t, signal, expectedSignal)
