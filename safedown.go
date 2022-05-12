@@ -26,9 +26,9 @@ const (
 	PerformCoordinately                             // PerformCoordinately means that the shutdown actions will ATTEMPT to coordinate these actions as much as possible.
 )
 
-// ShutdownActions represent a set of actions, i.e. functions, that are
-// performed, i.e. the functions are called, when a service or process is
-// shutting down, ending or interrupted.
+// ShutdownActions represent a set of actions that are performed, i.e. functions
+// that are called, when a service or computation is shutting down, ending or
+// interrupted.
 //
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
