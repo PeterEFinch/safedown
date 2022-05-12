@@ -116,7 +116,7 @@ func (sa *ShutdownActions) shutdown() {
 		sa.mutex.Unlock()
 
 		if sa.order == FirstInLastDone {
-			for left, right := 0, len(sa.actions)-1; left < right; left, right = left+1, right-1 {
+			for left, right := 0, len(actions)-1; left < right; left, right = left+1, right-1 {
 				actions[left], actions[right] = actions[right], actions[left]
 			}
 		}
