@@ -67,6 +67,30 @@ func TestShutdownActions_Shutdown_withListening(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_Wait_withShutdown tests that the wait method waits before
+// a shutdown and not after one.
+func TestShutdownActions_Wait_withShutdown(t *testing.T) {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
+	assertMethodIsTemporarilyBlocking(t, sa.Wait, 10*time.Millisecond, "wait function before shutdown")
+
+	// The inclusion of the wait means that if wait still blocks after shutdown
+	// then this test will run into a timeout.
+	sa.Shutdown()
+	sa.Wait()
+}
+
+// TestShutdownActions_Wait_withSignal tests that the wait method waits before
+// a signal and not after one.
+func TestShutdownActions_Wait_withSignal(t *testing.T) {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	assertMethodIsTemporarilyBlocking(t, sa.Wait, 10*time.Millisecond, "wait function before signal received")
+
+	// The inclusion of the wait means that if wait still blocks after shutdown
+	// then this test will run into a timeout.
+	sendOSSignalToSelf(os.Interrupt)
+	sa.Wait()
+}
+
 // TestShutdownActions_signalReceived tests that shutdown will be called when
 // a signal is received.
 func TestShutdownActions_signalReceived(t *testing.T) {
@@ -125,6 +149,28 @@ func assertCounterValue(t *testing.T, counter *int32, expectedValue int32, scena
 
 	t.Logf("%s: mismatch between expected value (%d) and actual value (%d)", scenario, expectedValue, actualValue)
 	t.FailNow()
+}
+
+// assertMethodIsTemporarilyBlocking checks that the method provided blocks for
+// the duration provided.
+//
+// This is useful for checking methods that are expected to temporarily block.
+// The assertion utilises concurrency and may give false results on occasion.
+// The duration should be sufficient to take into account the starting of a
+// goroutine. It is only intended for very simple blocking methods e.g. ones
+// that are solely waiting on a chan to be closed.
+func assertMethodIsTemporarilyBlocking(t *testing.T, method func(), duration time.Duration, scenario string) {
+	var state int32
+	go func() {
+		method()
+		atomic.StoreInt32(&state, 1)
+	}()
+
+	time.Sleep(duration)
+	if !atomic.CompareAndSwapInt32(&state, 0, 1) {
+		t.Logf("%s: method failed to block for duration", scenario)
+		t.FailNow()
+	}
 }
 
 func assertSignalEquality(t *testing.T, actual, expected os.Signal) {

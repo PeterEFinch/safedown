@@ -28,6 +28,7 @@ type ShutdownActions struct {
 	order        Order           // order represents the order actions will be performed on shutdown
 
 	mutex             *sync.Mutex   // mutex prevents clashes when shared across goroutines
+	shutdownCh        chan struct{} // shutdownCh will be closed when shutdown has been completed
 	shutdownOnce      *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
 	stopListeningCh   chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
 	stopListeningOnce *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
@@ -50,6 +51,7 @@ func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 	sa := &ShutdownActions{
 		mutex:             &sync.Mutex{},
 		order:             order,
+		shutdownCh:        make(chan struct{}),
 		shutdownOnce:      &sync.Once{},
 		stopListeningCh:   make(chan struct{}),
 		stopListeningOnce: &sync.Once{},
@@ -86,6 +88,11 @@ func (sa *ShutdownActions) Shutdown() {
 	sa.stopListening()
 }
 
+// Wait waits for the shutdown actions to have been performed.
+func (sa *ShutdownActions) Wait() {
+	<-sa.shutdownCh
+}
+
 func (sa *ShutdownActions) onSignal(received os.Signal) {
 	if received == nil {
 		return
@@ -117,6 +124,8 @@ func (sa *ShutdownActions) shutdown() {
 		for i := range actions {
 			actions[i]()
 		}
+
+		close(sa.shutdownCh)
 	})
 }
 
