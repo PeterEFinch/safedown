@@ -32,6 +32,7 @@ func main() {
 	// necessary but can be included to ensure that the actions are run at the
 	// very end even if no signal is received.
 	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.SetPostShutdownStrategy(safedown.PerformImmediately)
 	defer sa.Shutdown()
 
 	// Setting this function will allow logic based on what signal was 
@@ -59,7 +60,6 @@ func main() {
 
 ### F.A.Q. (Fictitiously Asked Questions)
 
-
 1. *What signals should I listen for?*
    This depends on which OS is being used. For example, for code in docker images running alpine listening for at
    least `syscall.SIGTERM` & `syscall.SIGINT` is recommended.
@@ -68,22 +68,26 @@ func main() {
    First in, last done order is most commonly used because the first things create are usually the last ones that need
    tearing down. This matches the view that safedown is like defer but graceful and coordinated.
 
-3. *What OSes has this been test on?*
+3. *What post shutdown strategy should I use?*
+   This depends on the application and how it is initialised. The post shutdown strategy is usually only used when the
+   application is interrupted during its initialisation.
+
+4. *What OSes has this been test on?*
    The tests have been run locally on macOS Monterey and on ubuntu in the github actions. It has not been tested on
    Windows, OpenBSD, etc.
 
-4. *Why are there no dependencies?*
+5. *Why are there no dependencies?*
    This repository is intended to be a zero-dependency library. This makes it easier to maintain and prevents adding
    external vulnerabilities or bugs.
 
-5. *Why is there no logging?*
+6. *Why is there no logging?*
    There is no convention when it comes to logging, so it was considered best to avoid it. The code is simple enough
    that it seems unnecessary.
 
-6. *Can I use this in mircoservices?*
+7. *Can I use this in mircoservices?*
    Yes. This was original designed to ensure graceful shutdown in microservices.
 
-7. *Why is there another VERY similar Safedown?*
+8. *Why is there another VERY similar Safedown?*
    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
    service (while I was an employee), which I finally put inside its
    own [Graphmasters repository](github.com/Graphmasters/safedown) (which I as of writing this I still maintain).
