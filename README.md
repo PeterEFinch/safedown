@@ -60,15 +60,15 @@ func main() {
 
 ### F.A.Q. (Fictitiously Asked Questions)
 
-1. *What signals should I listen for?*
-   This depends on which OS is being used. For example, for code in docker images running alpine listening for at
-   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended.
-
-2. *What order should I used?*
+1. *What order should I used?*
    First in, last done order is most commonly used because the first things create are usually the last ones that need
    tearing down. This matches the view that safedown is like defer but graceful and coordinated.
 
-3. *What post shutdown strategy should I use?*
+2. *What signals should I listen for?*
+   This depends on which OS is being used. For example, for code in docker images running alpine listening for at
+   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended.
+
+3. *Should I use a post shutdown strategy?*
    This depends on the application and how it is initialised. The post shutdown strategy is usually only used when the
    application is interrupted during its initialisation.
 
