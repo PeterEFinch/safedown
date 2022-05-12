@@ -120,6 +120,35 @@ func Example_shutdown_firstInLastDone() {
 	// ... and the first action added will be done last.
 }
 
+// Example_postShutdownStrategy demonstrates how to set a post shutdown strategy
+// and its consequences.
+func Example_postShutdownStrategy() {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
+	sa.SetPostShutdownStrategy(safedown.PerformCoordinately)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done after that.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	sa.AddActions(func() {
+		fmt.Println("The action added after shutdown is also done (provided we wait a little).")
+		wg.Done()
+	})
+	wg.Wait()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done after that.
+	// The action added after shutdown is also done (provided we wait a little).
+}
+
 // endregion
 
 // region Tests
