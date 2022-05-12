@@ -21,7 +21,7 @@ const (
 	invalidOrderValue              // invalidOrderValue is a constant used to validate the value of the order.
 )
 
-// PostShutdownStrategy represent the strategy that should be applied to action
+// PostShutdownStrategy represents the strategy that should be applied to action
 // added after shutdown has been triggered.
 type PostShutdownStrategy uint8
 
@@ -127,6 +127,9 @@ func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
 
 // SetPostShutdownStrategy determines how the actions will be handled after
 // Shutdown has been called or triggered via a signal.
+//
+// The strategy is usually only used when the Shutdown has been triggered during
+// the initialisation of an application.
 func (sa *ShutdownActions) SetPostShutdownStrategy(strategy PostShutdownStrategy) {
 	sa.mutex.Lock()
 	sa.strategy = strategy
