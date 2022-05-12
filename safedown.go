@@ -1,6 +1,8 @@
 package safedown
 
 import (
+	"os"
+	"os/signal"
 	"sync"
 )
 
@@ -21,24 +23,40 @@ const (
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
 type ShutdownActions struct {
-	actions []func() // actions contains the functions to be called on shutdown
-	order   Order    // order represents the order actions will be performed on shutdown
+	actions      []func()        // actions contains the functions to be called on shutdown
+	onSignalFunc func(os.Signal) // onSignalFunc gets called if a signal is received
+	order        Order           // order represents the order actions will be performed on shutdown
 
-	shutdownOnce *sync.Once  // shutdownOnce is used to ensure that the shutdown method is idempotent
-	mutex        *sync.Mutex // mutex prevents clashes when shared across goroutines
+	mutex             *sync.Mutex   // mutex prevents clashes when shared across goroutines
+	shutdownOnce      *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
+	stopListeningCh   chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
+	stopListeningOnce *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
 }
 
 // NewShutdownActions initialises shutdown actions.
-func NewShutdownActions(order Order) *ShutdownActions {
+//
+// The parameter order determines the order the actions will be performed
+// relative to the order they are added.
+//
+// Including signals will start a go routine which will listen for the given
+// signals. If one of the signals is received the Shutdown method will be
+// called. Unlike signal.Notify, using zero signals will listen to no signals
+// instead of all.
+func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 	if order >= invalidOrderValue {
 		panic("shutdown actions initialised with invalid order")
 	}
 
-	return &ShutdownActions{
-		order:        order,
-		shutdownOnce: &sync.Once{},
-		mutex:        &sync.Mutex{},
+	sa := &ShutdownActions{
+		mutex:             &sync.Mutex{},
+		order:             order,
+		shutdownOnce:      &sync.Once{},
+		stopListeningCh:   make(chan struct{}),
+		stopListeningOnce: &sync.Once{},
 	}
+
+	sa.startListening(signals)
+	return sa
 }
 
 // AddActions adds actions that will be performed when Shutdown is called.
@@ -53,11 +71,35 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	sa.mutex.Unlock()
 }
 
+// SetOnSignal sets a function that will be called if a signal is received.
+func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
+	sa.mutex.Lock()
+	sa.onSignalFunc = onSignal
+	sa.mutex.Unlock()
+}
+
 // Shutdown will perform all actions that have been added.
 //
 // This is an idempotent method and successive calls will have no affect.
 func (sa *ShutdownActions) Shutdown() {
 	sa.shutdown()
+	sa.stopListening()
+}
+
+func (sa *ShutdownActions) onSignal(received os.Signal) {
+	if received == nil {
+		return
+	}
+
+	sa.mutex.Lock()
+	onSignal := sa.onSignalFunc
+	sa.mutex.Unlock()
+
+	if onSignal == nil {
+		return
+	}
+
+	onSignal(received)
 }
 
 func (sa *ShutdownActions) shutdown() {
@@ -75,5 +117,35 @@ func (sa *ShutdownActions) shutdown() {
 		for i := range actions {
 			actions[i]()
 		}
+	})
+}
+
+func (sa *ShutdownActions) startListening(signals []os.Signal) {
+	if len(signals) == 0 {
+		sa.stopListening()
+		return
+	}
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, signals...)
+
+	go func() {
+		var received os.Signal
+		select {
+		case <-sa.stopListeningCh:
+		case received = <-signalCh:
+		}
+
+		signal.Stop(signalCh)
+		close(signalCh)
+
+		sa.onSignal(received)
+		sa.Shutdown()
+	}()
+}
+
+func (sa *ShutdownActions) stopListening() {
+	sa.stopListeningOnce.Do(func() {
+		close(sa.stopListeningCh)
 	})
 }

@@ -2,6 +2,8 @@ package safedown_test
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -40,6 +42,8 @@ func TestShutdownActions_Shutdown_FirstInLastDone(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_Shutdown_idempotent tests that the method Shutdown
+// is idempotent.
 func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
@@ -51,6 +55,66 @@ func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	sa.Shutdown()
 }
 
+// TestShutdownActions_Shutdown_withListening tests that the shutdown actions
+// can still be shut down manually while listening for signals.
+func TestShutdownActions_Shutdown_withListening(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+}
+
+// TestShutdownActions_signalReceived tests that shutdown will be called when
+// a signal is received.
+func TestShutdownActions_signalReceived(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sendOSSignalToSelf(os.Interrupt)
+}
+
+// TestShutdownActions_signalReceived_withOnSignal tests that onSignal method
+// and shutdown will be called when a signal is received.
+func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sendOSSignalToSelf(os.Interrupt)
+}
+
+// TestShutdownActions_multiShutdownActions tests that multiple shutdown actions
+// can be initialised with and shutdown while listen for the same signal.
+func TestShutdownActions_multiShutdownActions(t *testing.T) {
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	var counter1 int32
+	sa1 := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
+	sa1.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
+	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
+
+	var counter2 int32
+	sa2 := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
+	sa2.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
+	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
+
+	sendOSSignalToSelf(os.Interrupt)
+}
+
 // assertCounterValue fails the test if the value stored in the counter does
 // not match the expected value.
 func assertCounterValue(t *testing.T, counter *int32, expectedValue int32, scenario string) {
@@ -60,6 +124,15 @@ func assertCounterValue(t *testing.T, counter *int32, expectedValue int32, scena
 	}
 
 	t.Logf("%s: mismatch between expected value (%d) and actual value (%d)", scenario, expectedValue, actualValue)
+	t.FailNow()
+}
+
+func assertSignalEquality(t *testing.T, actual, expected os.Signal) {
+	if actual == expected {
+		return
+	}
+
+	t.Logf("mismatch between expected signal (%d) and actual signal (%d) received", expected, actual)
 	t.FailNow()
 }
 
@@ -99,6 +172,21 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int
 		atomic.AddInt32(counter, 1)
 		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
 		wg.Done()
+	}
+}
+
+func createTestableOnSignalFunction(t *testing.T, wg *sync.WaitGroup, expectedSignal os.Signal) func(os.Signal) {
+	wg.Add(1)
+	return func(signal os.Signal) {
+		assertSignalEquality(t, signal, expectedSignal)
+		wg.Done()
+	}
+}
+
+func sendOSSignalToSelf(signal os.Signal) {
+	process := os.Process{Pid: os.Getpid()}
+	if err := process.Signal(signal); err != nil {
+		panic(fmt.Sprintf("test failed: unable to send signal (%v) to self", signal))
 	}
 }
 
