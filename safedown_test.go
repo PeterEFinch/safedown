@@ -12,6 +12,48 @@ import (
 	"github.com/PeterEFinch/safedown"
 )
 
+// region Examples
+
+// Example_shutdown_firstInFirstDone demonstrates the "first in, first done"
+// order.
+func Example_shutdown_firstInFirstDone() {
+	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone)
+
+	sa.AddActions(func() {
+		fmt.Println("The first action added will be done first ...")
+	})
+	sa.AddActions(func() {
+		fmt.Println("... and the last action added will be done last.")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The first action added will be done first ...
+	// ... and the last action added will be done last.
+}
+
+// Example_shutdown_firstInLastDone demonstrates the "first in, last done"
+// order.
+func Example_shutdown_firstInLastDone() {
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done last.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done last.
+}
+
+// endregion
+
 // region Tests
 
 // TestShutdownActions_Shutdown tests that all shutdown actions are performed
