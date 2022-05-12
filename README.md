@@ -5,6 +5,6 @@ or termination signal is received, or when actions across go routines need to be
 
 <p align="center">
 <em>
-Safedown is like defer but graceful and coordinated.
+Safedown is like defer but more graceful and coordinated.
 </em>
 </p>
