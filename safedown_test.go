@@ -14,19 +14,6 @@ import (
 
 // region Tests
 
-func TestShutdownActions_ShutdownOnSignal(t *testing.T) {
-	var counter int32
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	sa := safedown.NewShutdownActions(safedown.FirstInFirstDone, os.Interrupt)
-	sa.SetOnSignal(createTestableOnSignalAction(t, wg, os.Interrupt))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
-	sendOSSignalToSelf(os.Interrupt)
-}
-
 // TestShutdownActions_Shutdown tests that all shutdown actions are performed
 // in order: first in, first done.
 func TestShutdownActions_Shutdown_FirstInFirstDone(t *testing.T) {
@@ -64,6 +51,61 @@ func TestShutdownActions_Shutdown_idempotent(t *testing.T) {
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.Shutdown()
 	sa.Shutdown()
+}
+
+func TestShutdownActions_Shutdown_withListening(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+}
+
+func TestShutdownActions_signalReceived(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sendOSSignalToSelf(os.Interrupt)
+}
+
+func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa.SetOnSignal(createTestableOnSignalAction(t, wg, os.Interrupt))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sendOSSignalToSelf(os.Interrupt)
+}
+
+func TestShutdownActions_multiShutdownActions(t *testing.T) {
+	deadline := time.Now().Add(time.Second)
+
+	var counter1 int32
+	wg1 := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg1, deadline)
+	sa1 := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa1.SetOnSignal(createTestableOnSignalAction(t, wg1, os.Interrupt))
+	sa1.AddActions(createTestableShutdownAction(t, wg1, &counter1, 1))
+
+	var counter2 int32
+	wg2 := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg2, deadline)
+	sa2 := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
+	sa2.SetOnSignal(createTestableOnSignalAction(t, wg2, os.Interrupt))
+	sa2.AddActions(createTestableShutdownAction(t, wg2, &counter2, 1))
+
+	sendOSSignalToSelf(os.Interrupt)
 }
 
 // assertCounterValue fails the test if the value stored in the counter does
