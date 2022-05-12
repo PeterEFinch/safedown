@@ -76,8 +76,8 @@ func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 
 // AddActions adds actions that will be performed when Shutdown is called.
 //
-// There is currently no prescribed behaviour for actions that have been added
-// after the Shutdown method has been called.
+// If Shutdown has already been called or trigger via a signal then the handling
+// of the actions will depend on the post-shutdown strategy.
 func (sa *ShutdownActions) AddActions(actions ...func()) {
 	sa.mutex.Lock()
 	// This is the pre-shutdown phase
