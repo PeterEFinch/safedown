@@ -1,3 +1,8 @@
+/*
+Package safedown is for ensuring that applications shutdown gracefully and
+correctly. This includes the cases when an interrupt or termination signal is
+received, or when actions across go routines need to be coordinated.
+*/
 package safedown
 
 import (
