@@ -130,8 +130,8 @@ func (sa *ShutdownActions) SetPostShutdownStrategy(strategy PostShutdownStrategy
 //
 // This is an idempotent method and successive calls will have no affect.
 func (sa *ShutdownActions) Shutdown() {
-	sa.shutdown()
 	sa.stopListening()
+	sa.shutdown()
 }
 
 // Wait waits for the shutdown actions to have been performed.
