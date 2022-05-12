@@ -1,3 +1,8 @@
+/*
+Package safedown is for ensuring that applications shutdown gracefully and
+correctly. This includes the cases when an interrupt or termination signal is
+received, or when actions across go routines need to be coordinated.
+*/
 package safedown
 
 import (
@@ -26,9 +31,9 @@ const (
 	PerformCoordinately                             // PerformCoordinately means that the shutdown actions will ATTEMPT to coordinate these actions as much as possible.
 )
 
-// ShutdownActions represent a set of actions, i.e. functions, that are
-// performed, i.e. the functions are called, when a service or process is
-// shutting down, ending or interrupted.
+// ShutdownActions represent a set of actions that are performed, i.e. functions
+// that are called, when a service or computation is shutting down, ending or
+// interrupted.
 //
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
@@ -50,7 +55,8 @@ type ShutdownActions struct {
 // NewShutdownActions initialises shutdown actions.
 //
 // The parameter order determines the order the actions will be performed
-// relative to the order they are added.
+// relative to the order they are added. The order parameter should always be
+// one of the constants defined in the safedown package.
 //
 // Including signals will start a go routine which will listen for the given
 // signals. If one of the signals is received the Shutdown method will be
@@ -74,7 +80,7 @@ func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
 	return sa
 }
 
-// AddActions adds actions that will be performed when Shutdown is called.
+// AddActions adds actions that are to be performed when Shutdown is called.
 //
 // If Shutdown has already been called or trigger via a signal then the handling
 // of the actions will depend on the post-shutdown strategy.
@@ -111,7 +117,8 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	}
 }
 
-// SetOnSignal sets a function that will be called if a signal is received.
+// SetOnSignal sets a function that will be called, prior to any action being
+// performed, if a signal is received.
 func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
 	sa.mutex.Lock()
 	sa.onSignalFunc = onSignal
@@ -134,7 +141,11 @@ func (sa *ShutdownActions) Shutdown() {
 	sa.shutdown()
 }
 
-// Wait waits for the shutdown actions to have been performed.
+// Wait waits until the shutdown actions to have been performed.
+//
+// If actions were added after Shutdown has been called or trigger via a signal
+// then whether this method wait for those actions to be performed on the
+// post-shutdown strategy and when the actions were added.
 func (sa *ShutdownActions) Wait() {
 	<-sa.shutdownCh
 }
