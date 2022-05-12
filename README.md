@@ -9,7 +9,7 @@ Safedown is like defer but more graceful and coordinated.
 </em>
 </p>
 
-# Quick Start
+### Quick Start
 
 Adding shutdown actions along with a set of signals allows for methods (in this case `cancel`) to be run when a
 termination signal, or similar, is received.
