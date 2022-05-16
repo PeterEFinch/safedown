@@ -131,8 +131,9 @@ func Example_shutdown_firstInLastDone() {
 // Example_postShutdownStrategy demonstrates how to set a post shutdown strategy
 // and its consequences.
 func Example_postShutdownStrategy() {
-	sa := safedown.NewShutdownActions()
-	sa.SetPostShutdownStrategy(safedown.PerformCoordinately)
+	sa := safedown.NewShutdownActions(
+		safedown.UsePostShutdownStrategy(safedown.PerformCoordinately),
+	)
 
 	sa.AddActions(func() {
 		fmt.Println("... and the first action added will be done after that.")
@@ -245,8 +246,9 @@ func TestShutdownActions_SetPostShutdownStrategy_None(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-	sa := safedown.NewShutdownActions()
-	sa.SetPostShutdownStrategy(safedown.DoNothing) // This is the default strategy
+	sa := safedown.NewShutdownActions(
+		safedown.UsePostShutdownStrategy(safedown.DoNothing), // This is the default strategy
+	)
 
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
@@ -264,8 +266,10 @@ func TestShutdownActions_SetPostShutdownStrategy_PerformCoordinately(t *testing.
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-	sa := safedown.NewShutdownActions()
-	sa.SetPostShutdownStrategy(safedown.PerformCoordinately)
+	sa := safedown.NewShutdownActions(
+		safedown.UsePostShutdownStrategy(safedown.PerformCoordinately),
+	)
+
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.Shutdown()
@@ -291,8 +295,10 @@ func TestShutdownActions_SetPostShutdownStrategy_PerformImmediately(t *testing.T
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-	sa := safedown.NewShutdownActions()
-	sa.SetPostShutdownStrategy(safedown.PerformImmediately)
+	sa := safedown.NewShutdownActions(
+		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
+	)
+
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
 	sa.Shutdown()

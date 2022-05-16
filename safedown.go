@@ -71,6 +71,7 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 	sa := &ShutdownActions{
 		order:        config.order,
 		onSignalFunc: config.onSignalFunc,
+		strategy:     config.strategy,
 
 		mutex:             &sync.Mutex{},
 		shutdownCh:        make(chan struct{}),
@@ -118,17 +119,6 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 		sa.mutex.Unlock()
 		return
 	}
-}
-
-// SetPostShutdownStrategy determines how the actions will be handled after
-// Shutdown has been called or triggered via a signal.
-//
-// The strategy is usually only used when the Shutdown has been triggered during
-// the initialisation of an application.
-func (sa *ShutdownActions) SetPostShutdownStrategy(strategy PostShutdownStrategy) {
-	sa.mutex.Lock()
-	sa.strategy = strategy
-	sa.mutex.Unlock()
 }
 
 // Shutdown will perform all actions that have been added.
@@ -285,6 +275,11 @@ func UseOrder(order Order) Option {
 	}
 }
 
+// UsePostShutdownStrategy determines how the actions will be handled after
+// Shutdown has been called or triggered via a signal.
+//
+// The strategy is usually only used when the Shutdown has been triggered during
+// the initialisation of an application.
 func UsePostShutdownStrategy(strategy PostShutdownStrategy) Option {
 	return func(o *config) {
 		o.strategy = strategy
