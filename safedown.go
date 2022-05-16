@@ -74,7 +74,7 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 		stopListeningOnce: &sync.Once{},
 	}
 
-	sa.startListening(config.shutdownOnAnySignal, config.signals)
+	sa.startListening(config.shutdownOnAnySignal, config.shutdownOnSignals)
 	return sa
 }
 
@@ -219,12 +219,13 @@ func (sa *ShutdownActions) stopListening() {
 	})
 }
 
+// config represents configuration for initialising the shutdown actions.
 type config struct {
 	order               Order                // order represents the order actions will be performed on shutdown
 	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
 	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
-	shutdownOnAnySignal bool                 // shutdownOnAnySignal
-	signals             []os.Signal
+	shutdownOnAnySignal bool                 // shutdownOnAnySignal indicates if the shutdown should be triggered by any signal
+	shutdownOnSignals   []os.Signal          // shutdownOnSignals stores the specific signals that should trigger shutdown
 }
 
 // Option represents an option of the shutdown actions.
@@ -236,7 +237,7 @@ type Option func(*config)
 // This option will override ShutdownOnSignals if included after it.
 func ShutdownOnAnySignal() Option {
 	return func(o *config) {
-		o.signals = nil
+		o.shutdownOnSignals = nil
 		o.shutdownOnAnySignal = true
 	}
 }
@@ -248,7 +249,7 @@ func ShutdownOnAnySignal() Option {
 // This option will override ShutdownOnAnySignal if included after it.
 func ShutdownOnSignals(signals ...os.Signal) Option {
 	return func(o *config) {
-		o.signals = signals
+		o.shutdownOnSignals = signals
 		o.shutdownOnAnySignal = false
 	}
 }
