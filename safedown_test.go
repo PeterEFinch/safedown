@@ -308,7 +308,7 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal(
 
 	sendOSSignalToSelf(os.Interrupt)
 
-	// The extra calls to Done are b
+	// The extra calls to Done are required because `sa2` will never be triggered.
 	wg.Done()
 	wg.Done()
 }
