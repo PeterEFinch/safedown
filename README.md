@@ -84,12 +84,9 @@ func main() {
 7. *Can I use this in mircoservices?*
    Yes. This was original designed to ensure graceful shutdown in microservices.
 
-8. *Why is there another VERY similar Safedown?*
+8. *Why is there another similar Safedown?*
    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
    service (while I was an employee), which I finally put inside its
    own [Graphmasters repository](github.com/Graphmasters/safedown) (which I as of writing this I still maintain).
    Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement my own
-   version from scratch with ideas from the original version because I wanted to.
-
-   It doesn't really matter which version you used as both version are very similar. The Graphmasters version is stable
-   and used in production microservices. This version currently has a few additional features.
+   version from scratch with ideas from the original version because I wanted to expand upon some ideas.
