@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/PeterEFinch/safedown"
@@ -20,11 +19,14 @@ func main() {
 	// This sets up the shutdown actions.
 	//
 	// The signals were chosen as they are common interrupt signals
-	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, syscall.SIGTERM, syscall.SIGINT)
-	sa.SetPostShutdownStrategy(safedown.PerformImmediately)
-	sa.SetOnSignal(func(signal os.Signal) {
-		log.Printf("Signal received: %s\n", signal.String())
-	})
+	sa := safedown.NewShutdownActions(
+		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
+		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
+		safedown.ShutdownOnAnySignal(),
+		safedown.UseOnSignalFunc(func(signal os.Signal) {
+			log.Printf("Signal received: %s\n", signal.String())
+		}),
+	)
 
 	go startHTTPServerA(sa, "address_auth_required")
 	go startHTTPServerB(sa, "address_no_auth_required")

@@ -54,29 +54,27 @@ type ShutdownActions struct {
 
 // NewShutdownActions initialises shutdown actions.
 //
-// The parameter order determines the order the actions will be performed
-// relative to the order they are added. The order parameter should always be
-// one of the constants defined in the safedown package.
-//
-// Including signals will start a go routine which will listen for the given
-// signals. If one of the signals is received the Shutdown method will be
-// called. Unlike signal.Notify, using zero signals will listen to no signals
-// instead of all.
-func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
-	if order >= invalidOrderValue {
-		panic("shutdown actions initialised with invalid order")
+// In the event that options conflict, the later option will override the
+// earlier option.
+func NewShutdownActions(options ...Option) *ShutdownActions {
+	config := &config{}
+	for _, option := range options {
+		option(config)
 	}
 
 	sa := &ShutdownActions{
+		order:        config.order,
+		onSignalFunc: config.onSignalFunc,
+		strategy:     config.strategy,
+
 		mutex:             &sync.Mutex{},
-		order:             order,
 		shutdownCh:        make(chan struct{}),
 		shutdownOnce:      &sync.Once{},
 		stopListeningCh:   make(chan struct{}),
 		stopListeningOnce: &sync.Once{},
 	}
 
-	sa.startListening(signals)
+	sa.startListening(config.shutdownOnAnySignal, config.shutdownOnSignals)
 	return sa
 }
 
@@ -117,25 +115,6 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	}
 }
 
-// SetOnSignal sets a function that will be called, prior to any action being
-// performed, if a signal is received.
-func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
-	sa.mutex.Lock()
-	sa.onSignalFunc = onSignal
-	sa.mutex.Unlock()
-}
-
-// SetPostShutdownStrategy determines how the actions will be handled after
-// Shutdown has been called or triggered via a signal.
-//
-// The strategy is usually only used when the Shutdown has been triggered during
-// the initialisation of an application.
-func (sa *ShutdownActions) SetPostShutdownStrategy(strategy PostShutdownStrategy) {
-	sa.mutex.Lock()
-	sa.strategy = strategy
-	sa.mutex.Unlock()
-}
-
 // Shutdown will perform all actions that have been added.
 //
 // This is an idempotent method and successive calls will have no affect.
@@ -154,19 +133,11 @@ func (sa *ShutdownActions) Wait() {
 }
 
 func (sa *ShutdownActions) onSignal(received os.Signal) {
-	if received == nil {
+	if received == nil || sa.onSignalFunc == nil {
 		return
 	}
 
-	sa.mutex.Lock()
-	onSignal := sa.onSignalFunc
-	sa.mutex.Unlock()
-
-	if onSignal == nil {
-		return
-	}
-
-	onSignal(received)
+	sa.onSignalFunc(received)
 }
 
 func (sa *ShutdownActions) performActions(actions []func()) {
@@ -218,8 +189,8 @@ func (sa *ShutdownActions) shutdown() {
 	})
 }
 
-func (sa *ShutdownActions) startListening(signals []os.Signal) {
-	if len(signals) == 0 {
+func (sa *ShutdownActions) startListening(shutdownOnAnySignal bool, signals []os.Signal) {
+	if !shutdownOnAnySignal && len(signals) == 0 {
 		sa.stopListening()
 		return
 	}
@@ -246,4 +217,70 @@ func (sa *ShutdownActions) stopListening() {
 	sa.stopListeningOnce.Do(func() {
 		close(sa.stopListeningCh)
 	})
+}
+
+// config represents configuration for initialising the shutdown actions.
+type config struct {
+	order               Order                // order represents the order actions will be performed on shutdown
+	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
+	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
+	shutdownOnAnySignal bool                 // shutdownOnAnySignal indicates if the shutdown should be triggered by any signal
+	shutdownOnSignals   []os.Signal          // shutdownOnSignals stores the specific signals that should trigger shutdown
+}
+
+// Option represents an option of the shutdown actions.
+type Option func(*config)
+
+// ShutdownOnAnySignal will enable shutdown to be triggered by any signal. To
+// trigger shutdown by a limited number of signals use ShutdownOnSignals.
+//
+// This option will override ShutdownOnSignals if included after it.
+func ShutdownOnAnySignal() Option {
+	return func(o *config) {
+		o.shutdownOnSignals = nil
+		o.shutdownOnAnySignal = true
+	}
+}
+
+// ShutdownOnSignals will enable the shutdown to be triggered by any of the
+// signals included. To trigger shutdown on any signal use the option
+// ShutdownOnAnySignal.
+//
+// This option will override ShutdownOnAnySignal if included after it.
+func ShutdownOnSignals(signals ...os.Signal) Option {
+	return func(o *config) {
+		o.shutdownOnSignals = signals
+		o.shutdownOnAnySignal = false
+	}
+}
+
+// UseOnSignalFunc sets a function that will be called that if any signal that
+// is listened for is received.
+func UseOnSignalFunc(onSignal func(os.Signal)) Option {
+	return func(o *config) {
+		o.onSignalFunc = onSignal
+	}
+}
+
+// UseOrder determines the order the actions will be performed relative to the
+// order they are added.
+func UseOrder(order Order) Option {
+	if order >= invalidOrderValue {
+		panic("shutdown option UseOrder set with invalid order")
+	}
+
+	return func(o *config) {
+		o.order = order
+	}
+}
+
+// UsePostShutdownStrategy determines how the actions will be handled after
+// Shutdown has been called or triggered via a signal.
+//
+// The strategy is usually only used when the Shutdown has been triggered during
+// the initialisation of an application.
+func UsePostShutdownStrategy(strategy PostShutdownStrategy) Option {
+	return func(o *config) {
+		o.strategy = strategy
+	}
 }
