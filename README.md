@@ -11,8 +11,8 @@ Safedown is like defer but more graceful and coordinated.
 
 ### Quick Start
 
-Adding shutdown actions along with a set of signals allows for methods (in this case `cancel`) to be run when a
-termination signal, or similar, is received.
+The shutdown actions are initialised through its constructor. Methods are added (in this case `cancel`) which will be
+run when a signal is received or when the `Shutdown` method is called.
 
 ```go
 package main
