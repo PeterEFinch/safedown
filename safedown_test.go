@@ -27,11 +27,13 @@ func Example_withSignalReceived() {
 		}
 	}(os.Getpid())
 
-	sa := safedown.NewShutdownActions(safedown.ShutdownOnAnySignal())
+	sa := safedown.NewShutdownActions(
+		safedown.ShutdownOnAnySignal(),
+		safedown.UseOnSignalFunc(func(signal os.Signal) {
+			fmt.Printf("Signal received: %s\n", signal.String())
+		}),
+	)
 	defer sa.Shutdown()
-	sa.SetOnSignal(func(signal os.Signal) {
-		fmt.Printf("Signal received: %s\n", signal.String())
-	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sa.AddActions(cancel)
@@ -59,11 +61,11 @@ func Example_withSignalReceived() {
 func Example_withoutSignalReceived() {
 	sa := safedown.NewShutdownActions(
 		safedown.ShutdownOnAnySignal(),
+		safedown.UseOnSignalFunc(func(signal os.Signal) {
+			fmt.Printf("Signal received: %s\n", signal.String())
+		}),
 	)
 	defer sa.Shutdown()
-	sa.SetOnSignal(func(signal os.Signal) {
-		fmt.Printf("Signal received: %s\n", signal.String())
-	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sa.AddActions(cancel)
@@ -359,9 +361,9 @@ func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
 
 	sa := safedown.NewShutdownActions(
 		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
 
-	sa.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
@@ -377,15 +379,15 @@ func TestShutdownActions_multiShutdownActions(t *testing.T) {
 	var counter1 int32
 	sa1 := safedown.NewShutdownActions(
 		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
-	sa1.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
 	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
 
 	var counter2 int32
 	sa2 := safedown.NewShutdownActions(
 		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
-	sa2.SetOnSignal(createTestableOnSignalFunction(t, wg, os.Interrupt))
 	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
 
 	sendOSSignalToSelf(os.Interrupt)

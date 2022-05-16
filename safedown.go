@@ -69,8 +69,10 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 	}
 
 	sa := &ShutdownActions{
+		order:        config.order,
+		onSignalFunc: config.onSignalFunc,
+
 		mutex:             &sync.Mutex{},
-		order:             config.order,
 		shutdownCh:        make(chan struct{}),
 		shutdownOnce:      &sync.Once{},
 		stopListeningCh:   make(chan struct{}),
@@ -116,14 +118,6 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 		sa.mutex.Unlock()
 		return
 	}
-}
-
-// SetOnSignal sets a function that will be called, prior to any action being
-// performed, if a signal is received.
-func (sa *ShutdownActions) SetOnSignal(onSignal func(os.Signal)) {
-	sa.mutex.Lock()
-	sa.onSignalFunc = onSignal
-	sa.mutex.Unlock()
 }
 
 // SetPostShutdownStrategy determines how the actions will be handled after
@@ -273,6 +267,8 @@ func ShutdownOnSignals(signals ...os.Signal) Option {
 	}
 }
 
+// UseOnSignalFunc sets a function that will be called that if any signal that
+// is listened for is received.
 func UseOnSignalFunc(onSignal func(os.Signal)) Option {
 	return func(o *config) {
 		o.onSignalFunc = onSignal
