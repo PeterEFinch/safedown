@@ -62,21 +62,22 @@ type ShutdownActions struct {
 // signals. If one of the signals is received the Shutdown method will be
 // called. Unlike signal.Notify, using zero signals will listen to no signals
 // instead of all.
-func NewShutdownActions(order Order, signals ...os.Signal) *ShutdownActions {
-	if order >= invalidOrderValue {
-		panic("shutdown actions initialised with invalid order")
+func NewShutdownActions(options ...Option) *ShutdownActions {
+	config := &config{}
+	for _, option := range options {
+		option(config)
 	}
 
 	sa := &ShutdownActions{
 		mutex:             &sync.Mutex{},
-		order:             order,
+		order:             config.order,
 		shutdownCh:        make(chan struct{}),
 		shutdownOnce:      &sync.Once{},
 		stopListeningCh:   make(chan struct{}),
 		stopListeningOnce: &sync.Once{},
 	}
 
-	sa.startListening(signals)
+	sa.startListening(config.shutdownOnAnySignal, config.signals)
 	return sa
 }
 
@@ -218,8 +219,8 @@ func (sa *ShutdownActions) shutdown() {
 	})
 }
 
-func (sa *ShutdownActions) startListening(signals []os.Signal) {
-	if len(signals) == 0 {
+func (sa *ShutdownActions) startListening(shutdownOnAnySignal bool, signals []os.Signal) {
+	if !shutdownOnAnySignal && len(signals) == 0 {
 		sa.stopListening()
 		return
 	}
@@ -248,7 +249,7 @@ func (sa *ShutdownActions) stopListening() {
 	})
 }
 
-type options struct {
+type config struct {
 	order               Order                // order represents the order actions will be performed on shutdown
 	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
 	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
@@ -256,36 +257,40 @@ type options struct {
 	signals             []os.Signal
 }
 
-type Option func(*options)
+type Option func(*config)
 
 func ShutdownOnAnySignal() Option {
-	return func(o *options) {
+	return func(o *config) {
 		o.signals = nil
 		o.shutdownOnAnySignal = true
 	}
 }
 
 func ShutdownOnSignals(signals ...os.Signal) Option {
-	return func(o *options) {
+	return func(o *config) {
 		o.signals = signals
 		o.shutdownOnAnySignal = false
 	}
 }
 
 func UseOnSignalFunc(onSignal func(os.Signal)) Option {
-	return func(o *options) {
+	return func(o *config) {
 		o.onSignalFunc = onSignal
 	}
 }
 
 func UseOrder(order Order) Option {
-	return func(o *options) {
+	if order >= invalidOrderValue {
+		panic("shutdown option UseOrder set with invalid order")
+	}
+
+	return func(o *config) {
 		o.order = order
 	}
 }
 
 func UsePostShutdownStrategy(strategy PostShutdownStrategy) Option {
-	return func(o *options) {
+	return func(o *config) {
 		o.strategy = strategy
 	}
 }
