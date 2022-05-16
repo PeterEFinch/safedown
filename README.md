@@ -63,7 +63,7 @@ func main() {
 
 2. *What signals should I listen for?*
    This depends on which OS is being used. For example, for code in docker images running alpine listening for at
-   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended.
+   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended. If unsure listening for any signal is reason.
 
 3. *Should I use a post shutdown strategy?*
    This depends on the application and how it is initialised. The post shutdown strategy is usually only used when the
