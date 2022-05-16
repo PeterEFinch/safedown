@@ -139,19 +139,11 @@ func (sa *ShutdownActions) Wait() {
 }
 
 func (sa *ShutdownActions) onSignal(received os.Signal) {
-	if received == nil {
+	if received == nil || sa.onSignalFunc == nil {
 		return
 	}
 
-	sa.mutex.Lock()
-	onSignal := sa.onSignalFunc
-	sa.mutex.Unlock()
-
-	if onSignal == nil {
-		return
-	}
-
-	onSignal(received)
+	sa.onSignalFunc(received)
 }
 
 func (sa *ShutdownActions) performActions(actions []func()) {
