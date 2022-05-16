@@ -247,3 +247,45 @@ func (sa *ShutdownActions) stopListening() {
 		close(sa.stopListeningCh)
 	})
 }
+
+type options struct {
+	order               Order                // order represents the order actions will be performed on shutdown
+	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
+	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
+	shutdownOnAnySignal bool
+	signals             []os.Signal
+}
+
+type Option func(*options)
+
+func ShutdownOnAnySignal() Option {
+	return func(o *options) {
+		o.signals = nil
+		o.shutdownOnAnySignal = true
+	}
+}
+
+func ShutdownOnSignals(signals ...os.Signal) Option {
+	return func(o *options) {
+		o.signals = signals
+		o.shutdownOnAnySignal = false
+	}
+}
+
+func UseOnSignalFunc(onSignal func(os.Signal)) Option {
+	return func(o *options) {
+		o.onSignalFunc = onSignal
+	}
+}
+
+func UseOrder(order Order) Option {
+	return func(o *options) {
+		o.order = order
+	}
+}
+
+func UsePostShutdownStrategy(strategy PostShutdownStrategy) Option {
+	return func(o *options) {
+		o.strategy = strategy
+	}
+}
