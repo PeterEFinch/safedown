@@ -54,14 +54,8 @@ type ShutdownActions struct {
 
 // NewShutdownActions initialises shutdown actions.
 //
-// The parameter order determines the order the actions will be performed
-// relative to the order they are added. The order parameter should always be
-// one of the constants defined in the safedown package.
-//
-// Including signals will start a go routine which will listen for the given
-// signals. If one of the signals is received the Shutdown method will be
-// called. Unlike signal.Notify, using zero signals will listen to no signals
-// instead of all.
+// In the event that options conflict, the later option will override the
+// earlier option.
 func NewShutdownActions(options ...Option) *ShutdownActions {
 	config := &config{}
 	for _, option := range options {
@@ -229,12 +223,17 @@ type config struct {
 	order               Order                // order represents the order actions will be performed on shutdown
 	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
 	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
-	shutdownOnAnySignal bool
+	shutdownOnAnySignal bool                 // shutdownOnAnySignal
 	signals             []os.Signal
 }
 
+// Option represents an option of the shutdown actions.
 type Option func(*config)
 
+// ShutdownOnAnySignal will enable shutdown to be triggered by any signal. To
+// trigger shutdown by a limited number of signals use ShutdownOnSignals.
+//
+// This option will override ShutdownOnSignals if included after it.
 func ShutdownOnAnySignal() Option {
 	return func(o *config) {
 		o.signals = nil
@@ -242,6 +241,11 @@ func ShutdownOnAnySignal() Option {
 	}
 }
 
+// ShutdownOnSignals will enable the shutdown to be triggered by any of the
+// signals included. To trigger shutdown on any signal use the option
+// ShutdownOnAnySignal.
+//
+// This option will override ShutdownOnAnySignal if included after it.
 func ShutdownOnSignals(signals ...os.Signal) Option {
 	return func(o *config) {
 		o.signals = signals
@@ -257,6 +261,8 @@ func UseOnSignalFunc(onSignal func(os.Signal)) Option {
 	}
 }
 
+// UseOrder determines the order the actions will be performed relative to the
+// order they are added.
 func UseOrder(order Order) Option {
 	if order >= invalidOrderValue {
 		panic("shutdown option UseOrder set with invalid order")
