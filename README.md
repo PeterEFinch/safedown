@@ -27,15 +27,15 @@ import (
 )
 
 func main() {
-	// Safedown actions must be initiated with an order as well as signals
-	// that should be listened for. Including `defer sa.Shutdown()` is not 
+	// Shutdown actions must be initiated with an order as well as signals
+	// that should be listened for. Including `defer sa.Shutdown()` is not
 	// necessary but can be included to ensure that the actions are run at the
 	// very end even if no signal is received.
 	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, os.Interrupt)
 	sa.SetPostShutdownStrategy(safedown.PerformImmediately)
 	defer sa.Shutdown()
 
-	// Setting this function will allow logic based on what signal was 
+	// Setting this function will allow logic based on what signal was
 	// received.
 	sa.SetOnSignal(func(signal os.Signal) {
 		fmt.Printf("Signal received: %s\n", signal.String())
