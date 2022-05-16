@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
@@ -22,14 +21,15 @@ func main() {
 	// database will still have access to the database.
 	//
 	// The signals were chosen as they are common interrupt signals
-	sa := safedown.NewShutdownActions(safedown.FirstInLastDone, syscall.SIGTERM, syscall.SIGINT)
-	sa.SetPostShutdownStrategy(safedown.PerformImmediately)
+	sa := safedown.NewShutdownActions(
+		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
+		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
+		safedown.ShutdownOnAnySignal(),
+		safedown.UseOnSignalFunc(func(signal os.Signal) {
+			log.Printf("Signal received: %s\n", signal.String())
+		}),
+	)
 	defer sa.Shutdown()
-
-	// This is just to log if any signal was received.
-	sa.SetOnSignal(func(signal os.Signal) {
-		log.Printf("Signal received: %s\n", signal.String())
-	})
 
 	// The database was chosen to be badger out of convenience.
 	db, err := badger.Open(badger.DefaultOptions("/path/to/badger/file"))
