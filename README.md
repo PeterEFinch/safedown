@@ -55,6 +55,8 @@ func main() {
 }
 ```
 
+For more detailed examples see the [examples module](./examples). 
+
 ### F.A.Q. (Fictitiously Asked Questions)
 
 1. *What order should I used?*
