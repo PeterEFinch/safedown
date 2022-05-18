@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/PeterEFinch/safedown"
@@ -16,9 +17,6 @@ import (
 // and the other not, e.g. for health. Alternatively, one of the HTTP servers
 // could be viewed as a stand-in for another type of server, e.g. gRPC.
 func main() {
-	// This sets up the shutdown actions.
-	//
-	// The signals were chosen as they are common interrupt signals
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
 		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
@@ -28,18 +26,22 @@ func main() {
 		}),
 	)
 
-	go startHTTPServerA(sa, "address_auth_required")
-	go startHTTPServerB(sa, "address_no_auth_required")
+	// We initialise a wait group and add the number of goroutines.
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
 
-	// Wait will ensure that the service keeps running until shutdown has been
-	// completed.
-	sa.Wait()
+	go startHTTPServerA(wg, sa, "address_auth_required")
+	go startHTTPServerB(wg, sa, "address_no_auth_required")
+
+	// Wait waits for all the goroutines to have ended.
+	wg.Wait()
 
 }
 
-func startHTTPServerA(sa *safedown.ShutdownActions, address string) {
+func startHTTPServerA(wg *sync.WaitGroup, sa *safedown.ShutdownActions, address string) {
 	// In situations when a server is considered critical, it is recommended
 	// that shutdown is deferred in case the server stop for any reason.
+	defer wg.Done()
 	defer sa.Shutdown()
 
 	mux := http.NewServeMux()
@@ -65,9 +67,10 @@ func startHTTPServerA(sa *safedown.ShutdownActions, address string) {
 	}
 }
 
-func startHTTPServerB(sa *safedown.ShutdownActions, address string) {
+func startHTTPServerB(wg *sync.WaitGroup, sa *safedown.ShutdownActions, address string) {
 	// In situations when a server is considered critical, it is recommended
 	// that shutdown is deferred in case the server stop for any reason.
+	defer wg.Done()
 	defer sa.Shutdown()
 
 	mux := http.NewServeMux()

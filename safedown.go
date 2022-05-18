@@ -26,9 +26,10 @@ const (
 type PostShutdownStrategy uint8
 
 const (
-	DoNothing           PostShutdownStrategy = iota // DoNothing means that any action added after shutdown has been trigger will not be done.
-	PerformImmediately                              // PerformImmediately means that any action added after shutdown will be performed immediately.
-	PerformCoordinately                             // PerformCoordinately means that the shutdown actions will ATTEMPT to coordinate these actions as much as possible.
+	DoNothing                       PostShutdownStrategy = iota // DoNothing means that any action added after shutdown has been trigger will not be done.
+	PerformImmediately                                          // PerformImmediately means that any action added after shutdown will be performed immediately (and block the AddAction method).
+	PerformImmediatelyInBackground                              // PerformImmediatelyInBackground means that any action added after shutdown will be performed immediately in a go routine.
+	PerformCoordinatelyInBackground                             // PerformCoordinatelyInBackground means that the shutdown actions will ATTEMPT to coordinate the actions added with all other actions which have already been added.
 )
 
 // ShutdownActions represent a set of actions that are performed, i.e. functions
@@ -96,9 +97,13 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	switch sa.strategy {
 	case PerformImmediately:
 		sa.mutex.Unlock()
+		sa.performActions(actions)
+		return
+	case PerformImmediatelyInBackground:
+		sa.mutex.Unlock()
 		go sa.performActions(actions)
 		return
-	case PerformCoordinately:
+	case PerformCoordinatelyInBackground:
 		sa.actions = append(sa.actions, actions...)
 		if sa.isProcessingActive {
 			sa.mutex.Unlock()

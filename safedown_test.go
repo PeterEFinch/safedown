@@ -132,7 +132,7 @@ func Example_shutdown_firstInLastDone() {
 // and its consequences.
 func Example_postShutdownStrategy() {
 	sa := safedown.NewShutdownActions(
-		safedown.UsePostShutdownStrategy(safedown.PerformCoordinately),
+		safedown.UsePostShutdownStrategy(safedown.PerformCoordinatelyInBackground),
 	)
 
 	sa.AddActions(func() {
@@ -408,16 +408,16 @@ func TestShutdownActions_postShutdownStrategy_doNothing(t *testing.T) {
 	wg.Done()
 }
 
-// TestShutdownActions_postShutdownStrategy_performCoordinately tests
+// TestShutdownActions_postShutdownStrategy_performCoordinatelyInBackground tests
 // that actions can be performed after shutdown has been called in a way that
-// matches the PerformCoordinately description.
-func TestShutdownActions_postShutdownStrategy_performCoordinately(t *testing.T) {
+// matches the PerformCoordinatelyInBackground description.
+func TestShutdownActions_postShutdownStrategy_performCoordinatelyInBackground(t *testing.T) {
 	var counter int32
 	wg := &sync.WaitGroup{}
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(
-		safedown.UsePostShutdownStrategy(safedown.PerformCoordinately),
+		safedown.UsePostShutdownStrategy(safedown.PerformCoordinatelyInBackground),
 	)
 
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
@@ -457,13 +457,40 @@ func TestShutdownActions_postShutdownStrategy_performImmediately(t *testing.T) {
 	// condition to determine which will increment the counter first. Due to the
 	// delays/sleeps we obtain the expected values.
 
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 5*time.Millisecond))
+	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
+	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 5))
+	time.Sleep(time.Millisecond)
+}
+
+// TestShutdownActions_postShutdownStrategy_performImmediatelyInBackground tests
+// that actions can be performed after shutdown has been called in a way that
+// matches the PerformImmediatelyInBackground description.
+func TestShutdownActions_postShutdownStrategy_performImmediatelyInBackground(t *testing.T) {
+	var counter int32
+	wg := &sync.WaitGroup{}
+	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+	sa := safedown.NewShutdownActions(
+		safedown.UsePostShutdownStrategy(safedown.PerformImmediatelyInBackground),
+	)
+
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+	sa.Shutdown()
+
+	// All actions will start immediately in a go routine. It is a race
+	// condition to determine which will increment the counter first. Due to the
+	// delays/sleeps we obtain the expected values.
+
 	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 5, 5*time.Millisecond))
 	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
 	time.Sleep(time.Millisecond)
-
 }
 
 // assertCounterValue fails the test if the value stored in the counter does
