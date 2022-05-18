@@ -89,6 +89,6 @@ For more detailed examples see the [examples module](./examples).
 8. *Why is there another similar Safedown?*
    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
    service (while I was an employee), which I finally put inside its
-   own [Graphmasters repository](https://github.com/Graphmasters/safedown) (which I as of writing this I still maintain).
+   own [Graphmasters Safedown repository](https://github.com/Graphmasters/safedown) (which I as of writing this I still maintain).
    Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement my own
    version from scratch with ideas from the original version because I wanted to expand upon some ideas.
