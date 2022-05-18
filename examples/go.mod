@@ -2,10 +2,13 @@ module github.com/PeterEFinch/safedown/examples
 
 go 1.18
 
-replace github.com/PeterEFinch/safedown v0.0.0-20220512220549-921006eee9d3 => ./..
+// Replace is used so that this module always uses the latest safedown code.
+// However, this means the version listed will often be incorrect.
+
+replace github.com/PeterEFinch/safedown v0.1.1-0.20220518202553-6dbee67af159 => ./..
 
 require (
-	github.com/PeterEFinch/safedown v0.0.0-20220512220549-921006eee9d3
+	github.com/PeterEFinch/safedown v0.1.1-0.20220518202553-6dbee67af159
 	github.com/dgraph-io/badger/v3 v3.2103.2
 )
 
