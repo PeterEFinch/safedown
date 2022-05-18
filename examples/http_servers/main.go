@@ -12,10 +12,14 @@ import (
 	"github.com/PeterEFinch/safedown"
 )
 
-// main demonstrates how a useful way to initialise two HTTP servers. There are
-// instances where having two HTTP servers is useful such as one requiring auth
-// and the other not, e.g. for health. Alternatively, one of the HTTP servers
-// could be viewed as a stand-in for another type of server, e.g. gRPC.
+// main demonstrates how a useful way to initialise two critical HTTP servers.
+// The servers are critical in the sense that if either permanently stop the
+// application should stop.
+//
+// There are instances where having two HTTP servers is useful such as one
+// requiring auth and the other not, e.g. for health. Alternatively, one of the
+// HTTP servers could be viewed as a stand-in for another type of server, e.g.
+// gRPC.
 func main() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
@@ -40,7 +44,7 @@ func main() {
 
 func startHTTPServerA(wg *sync.WaitGroup, sa *safedown.ShutdownActions, address string) {
 	// In situations when a server is considered critical, it is recommended
-	// that shutdown is deferred in case the server stop for any reason.
+	// that shutdown is deferred in case the server stops for any reason.
 	defer wg.Done()
 	defer sa.Shutdown()
 
@@ -69,7 +73,7 @@ func startHTTPServerA(wg *sync.WaitGroup, sa *safedown.ShutdownActions, address 
 
 func startHTTPServerB(wg *sync.WaitGroup, sa *safedown.ShutdownActions, address string) {
 	// In situations when a server is considered critical, it is recommended
-	// that shutdown is deferred in case the server stop for any reason.
+	// that shutdown is deferred in case the server stops for any reason.
 	defer wg.Done()
 	defer sa.Shutdown()
 
