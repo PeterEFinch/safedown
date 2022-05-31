@@ -19,8 +19,6 @@ func main() {
 	// Using "safedown.FirstInLastDone" means that the HTTP server will stop
 	// and then database will stop. This means HTTP calls that rely on the
 	// database will still have access to the database.
-	//
-	// The signals were chosen as they are common interrupt signals
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
 		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
