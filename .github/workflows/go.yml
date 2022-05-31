@@ -13,8 +13,12 @@ on:
 jobs:
   # The 'test' job runs all the go tests
   test:
-    name: test
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Check out code
