@@ -44,13 +44,13 @@ type ShutdownActions struct {
 	onSignalFunc func(os.Signal)      // onSignalFunc gets called if a signal is received
 	strategy     PostShutdownStrategy // strategy contains the post shutdown strategy
 
-	mutex               *sync.Mutex   // mutex prevents clashes when shared across goroutines
-	isProcessingActive  bool          // isProcessingActive is true if and only if the stored actions are being performed or just about to be performed
-	isShutdownTriggered bool          // isShutdownTriggered is true if and only if shutdown has been triggered
-	shutdownCh          chan struct{} // shutdownCh will be closed when shutdown has been completed
-	shutdownOnce        *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
-	stopListeningCh     chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
-	stopListeningOnce   *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
+	mutex                     *sync.Mutex   // mutex prevents clashes when shared across goroutines
+	isPerformingStoredActions bool          // isPerformingStoredActions is true if and only if the stored actions are being performed or just about to be performed
+	isShutdownTriggered       bool          // isShutdownTriggered is true if and only if shutdown has been triggered
+	shutdownCh                chan struct{} // shutdownCh will be closed when shutdown has been completed
+	shutdownOnce              *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
+	stopListeningCh           chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
+	stopListeningOnce         *sync.Once    // stopListeningOnce is used to ensure that stopListeningCh is closed at most once
 }
 
 // NewShutdownActions initialises shutdown actions.
@@ -105,12 +105,12 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 		return
 	case PerformCoordinatelyInBackground:
 		sa.actions = append(sa.actions, actions...)
-		if sa.isProcessingActive {
+		if sa.isPerformingStoredActions {
 			sa.mutex.Unlock()
 			return
 		}
 
-		sa.isProcessingActive = true
+		sa.isPerformingStoredActions = true
 		sa.mutex.Unlock()
 		go sa.performStoredActions()
 		return
@@ -165,11 +165,11 @@ func (sa *ShutdownActions) performLooseActions(actions []func()) {
 // struct.
 //
 // To avoid this method being called multiple times in concurrent go
-// routines the boolean isProcessingActive MUST be change from FALSE to TRUE
+// routines the boolean isPerformingStoredActions MUST be change from FALSE to TRUE
 // in a concurrent safe manner prior to calling this method.
 func (sa *ShutdownActions) performStoredActions() {
 	// It would be possible to prevent the actions from being performed in
-	// multiple go routines by managing isProcessingActive from inside this
+	// multiple go routines by managing isPerformingStoredActions from inside this
 	// method, however, this would mean that this method no longer blocks
 	// until all stored actions have been performed. This is essential for the
 	// functionality .shutdown() method.
@@ -178,7 +178,7 @@ func (sa *ShutdownActions) performStoredActions() {
 		sa.mutex.Lock()
 		switch {
 		case len(sa.actions) == 0:
-			sa.isProcessingActive = false
+			sa.isPerformingStoredActions = false
 			sa.mutex.Unlock()
 			return
 		case sa.order == FirstInLastDone:
@@ -198,7 +198,7 @@ func (sa *ShutdownActions) shutdown() {
 	sa.shutdownOnce.Do(func() {
 		sa.mutex.Lock()
 		sa.isShutdownTriggered = true
-		sa.isProcessingActive = true
+		sa.isPerformingStoredActions = true
 		sa.mutex.Unlock()
 
 		sa.performStoredActions()
