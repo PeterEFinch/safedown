@@ -97,11 +97,11 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	switch sa.strategy {
 	case PerformImmediately:
 		sa.mutex.Unlock()
-		sa.performActions(actions)
+		sa.performLooseActions(actions)
 		return
 	case PerformImmediatelyInBackground:
 		sa.mutex.Unlock()
-		go sa.performActions(actions)
+		go sa.performLooseActions(actions)
 		return
 	case PerformCoordinatelyInBackground:
 		sa.actions = append(sa.actions, actions...)
@@ -145,7 +145,11 @@ func (sa *ShutdownActions) onSignal(received os.Signal) {
 	sa.onSignalFunc(received)
 }
 
-func (sa *ShutdownActions) performActions(actions []func()) {
+// performLooseActions performs the actions passed to it.
+//
+// The word `loose` was used to distinguish it from the performing of the
+// actions stored inside the ShutdownActions struct.
+func (sa *ShutdownActions) performLooseActions(actions []func()) {
 	if sa.order == FirstInLastDone {
 		for left, right := 0, len(actions)-1; left < right; left, right = left+1, right-1 {
 			actions[left], actions[right] = actions[right], actions[left]
