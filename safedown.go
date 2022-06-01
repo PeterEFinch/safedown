@@ -196,12 +196,9 @@ func (sa *ShutdownActions) performStoredActions() {
 
 func (sa *ShutdownActions) shutdown() {
 	sa.shutdownOnce.Do(func() {
+		// It should be impossible for isPerformingStoredActions to be true
+		// before shutdown has been called and consequently not checked.
 		sa.mutex.Lock()
-		if sa.isPerformingStoredActions {
-			// This code MUST be unreachable
-			panic("actions can not be performed before shutdown has been triggered")
-		}
-
 		sa.isShutdownTriggered = true
 		sa.isPerformingStoredActions = true
 		sa.mutex.Unlock()
