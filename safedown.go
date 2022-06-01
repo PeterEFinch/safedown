@@ -46,7 +46,7 @@ type ShutdownActions struct {
 
 	mutex               *sync.Mutex   // mutex prevents clashes when shared across goroutines
 	isProcessingActive  bool          // isProcessingActive is true if and only if the stored actions are being performed or just about to be performed
-	isProcessingAllowed bool          // isProcessingAllowed is true if and only if actions can be performed when added (occurs after shutdown has been triggered)
+	isShutdownTriggered bool          // isShutdownTriggered is true if and only if shutdown has been triggered
 	shutdownCh          chan struct{} // shutdownCh will be closed when shutdown has been completed
 	shutdownOnce        *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
 	stopListeningCh     chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
@@ -86,7 +86,7 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 func (sa *ShutdownActions) AddActions(actions ...func()) {
 	sa.mutex.Lock()
 	// This is the pre-shutdown phase
-	if !sa.isProcessingAllowed {
+	if !sa.isShutdownTriggered {
 		sa.actions = append(sa.actions, actions...)
 		sa.mutex.Unlock()
 		return
@@ -185,7 +185,7 @@ func (sa *ShutdownActions) performStoredActions() {
 func (sa *ShutdownActions) shutdown() {
 	sa.shutdownOnce.Do(func() {
 		sa.mutex.Lock()
-		sa.isProcessingAllowed = true
+		sa.isShutdownTriggered = true
 		sa.isProcessingActive = true
 		sa.mutex.Unlock()
 
