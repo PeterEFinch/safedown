@@ -161,10 +161,18 @@ func (sa *ShutdownActions) performLooseActions(actions []func()) {
 	}
 }
 
+// performStoredActions performs the actions stored inside the ShutdownActions
+// struct.
+//
+// To avoid this method being called multiple times in concurrent go
+// routines the boolean isProcessingActive MUST be change from FALSE to TRUE
+// in a concurrent safe manner prior to calling this method.
 func (sa *ShutdownActions) performStoredActions() {
-	// To avoid this method being called multiple times in concurrent go
-	// routines the boolean isProcessingActive MUST be change from FALSE to TRUE
-	// in a concurrent safe manner prior to calling this method.
+	// It would be possible to prevent the actions from being performed in
+	// multiple go routines by managing isProcessingActive from inside this
+	// method, however, this would mean that this method no longer blocks
+	// until all stored actions have been performed. This is essential for the
+	// functionality .shutdown() method.
 	for {
 		var action func()
 		sa.mutex.Lock()
