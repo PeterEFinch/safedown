@@ -14,78 +14,6 @@ import (
 
 // region Examples
 
-// Example_signalReceived demonstrates how setting up the safedown's
-// shutdown actions works when a signal is received.
-func Example_signalReceived() {
-	// This will send an interrupt signal after a second to simulate a signal
-	// being sent from the outside.
-	go func(pid int) {
-		time.Sleep(time.Second)
-		process := os.Process{Pid: pid}
-		if err := process.Signal(os.Interrupt); err != nil {
-			panic("unable to continue test: could not send signal to process")
-		}
-	}(os.Getpid())
-
-	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnAnySignal(),
-		safedown.UseOnSignalFunc(func(signal os.Signal) {
-			fmt.Printf("Signal received: %s\n", signal.String())
-		}),
-	)
-	defer sa.Shutdown()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	sa.AddActions(cancel)
-
-	fmt.Println("Processing starting")
-	t := time.After(2 * time.Second)
-	select {
-	case <-ctx.Done():
-		fmt.Println("Context cancelled")
-	case <-t:
-		fmt.Println("Ticker ticked")
-	}
-	fmt.Println("Finished")
-
-	// Output:
-	// Processing starting
-	// Signal received: interrupt
-	// Context cancelled
-	// Finished
-}
-
-// Example_signalNotReceived demonstrates how setting up the safedown's
-// shutdown actions works when no signal is received (and the program can
-// terminate of its own accord).
-func Example_signalNotReceived() {
-	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnAnySignal(),
-		safedown.UseOnSignalFunc(func(signal os.Signal) {
-			fmt.Printf("Signal received: %s\n", signal.String())
-		}),
-	)
-	defer sa.Shutdown()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	sa.AddActions(cancel)
-
-	fmt.Println("Processing starting")
-	t := time.After(2 * time.Second)
-	select {
-	case <-ctx.Done():
-		fmt.Println("Context cancelled")
-	case <-t:
-		fmt.Println("Ticker ticked")
-	}
-	fmt.Println("Finished")
-
-	// Output:
-	// Processing starting
-	// Ticker ticked
-	// Finished
-}
-
 // Example_firstInFirstDone demonstrates the "first in, first done"
 // order.
 func Example_firstInFirstDone() {
@@ -156,6 +84,78 @@ func Example_postShutdownStrategy() {
 	// The last action added will be done first ...
 	// ... and the first action added will be done after that.
 	// The action added after shutdown is also done (provided we wait a little).
+}
+
+// Example_signalReceived demonstrates how setting up the safedown's
+// shutdown actions works when a signal is received.
+func Example_signalReceived() {
+	// This will send an interrupt signal after a second to simulate a signal
+	// being sent from the outside.
+	go func(pid int) {
+		time.Sleep(time.Second)
+		process := os.Process{Pid: pid}
+		if err := process.Signal(os.Interrupt); err != nil {
+			panic("unable to continue test: could not send signal to process")
+		}
+	}(os.Getpid())
+
+	sa := safedown.NewShutdownActions(
+		safedown.ShutdownOnAnySignal(),
+		safedown.UseOnSignalFunc(func(signal os.Signal) {
+			fmt.Printf("Signal received: %s\n", signal.String())
+		}),
+	)
+	defer sa.Shutdown()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sa.AddActions(cancel)
+
+	fmt.Println("Processing starting")
+	t := time.After(2 * time.Second)
+	select {
+	case <-ctx.Done():
+		fmt.Println("Context cancelled")
+	case <-t:
+		fmt.Println("Ticker ticked")
+	}
+	fmt.Println("Finished")
+
+	// Output:
+	// Processing starting
+	// Signal received: interrupt
+	// Context cancelled
+	// Finished
+}
+
+// Example_signalNotReceived demonstrates how setting up the safedown's
+// shutdown actions works when no signal is received (and the program can
+// terminate of its own accord).
+func Example_signalNotReceived() {
+	sa := safedown.NewShutdownActions(
+		safedown.ShutdownOnAnySignal(),
+		safedown.UseOnSignalFunc(func(signal os.Signal) {
+			fmt.Printf("Signal received: %s\n", signal.String())
+		}),
+	)
+	defer sa.Shutdown()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sa.AddActions(cancel)
+
+	fmt.Println("Processing starting")
+	t := time.After(2 * time.Second)
+	select {
+	case <-ctx.Done():
+		fmt.Println("Context cancelled")
+	case <-t:
+		fmt.Println("Ticker ticked")
+	}
+	fmt.Println("Finished")
+
+	// Output:
+	// Processing starting
+	// Ticker ticked
+	// Finished
 }
 
 // endregion
