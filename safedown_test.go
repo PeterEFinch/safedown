@@ -14,9 +14,9 @@ import (
 
 // region Examples
 
-// Example_withSignalReceived demonstrates how setting up the safedown's
+// Example_signalReceived demonstrates how setting up the safedown's
 // shutdown actions works when a signal is received.
-func Example_withSignalReceived() {
+func Example_signalReceived() {
 	// This will send an interrupt signal after a second to simulate a signal
 	// being sent from the outside.
 	go func(pid int) {
@@ -55,10 +55,10 @@ func Example_withSignalReceived() {
 	// Finished
 }
 
-// Example_withoutSignalReceived demonstrates how setting up the safedown's
+// Example_signalNotReceived demonstrates how setting up the safedown's
 // shutdown actions works when no signal is received (and the program can
 // terminate of its own accord).
-func Example_withoutSignalReceived() {
+func Example_signalNotReceived() {
 	sa := safedown.NewShutdownActions(
 		safedown.ShutdownOnAnySignal(),
 		safedown.UseOnSignalFunc(func(signal os.Signal) {
@@ -86,9 +86,9 @@ func Example_withoutSignalReceived() {
 	// Finished
 }
 
-// Example_shutdown_firstInFirstDone demonstrates the "first in, first done"
+// Example_firstInFirstDone demonstrates the "first in, first done"
 // order.
-func Example_shutdown_firstInFirstDone() {
+func Example_firstInFirstDone() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInFirstDone),
 	)
@@ -107,9 +107,9 @@ func Example_shutdown_firstInFirstDone() {
 	// ... and the last action added will be done last.
 }
 
-// Example_shutdown_firstInLastDone demonstrates the "first in, last done"
+// Example_firstInLastDone demonstrates the "first in, last done"
 // order.
-func Example_shutdown_firstInLastDone() {
+func Example_firstInLastDone() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone),
 	)
