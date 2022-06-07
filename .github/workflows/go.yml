@@ -28,6 +28,28 @@ jobs:
       - name: Test
         run: go test -v -timeout 10s ./...
 
+  # The 'test' job runs all the go tests
+  test_os:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+        go-version: [1.17, 1.18]
+
+    name: test go${{ matrix.go-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Test
+        run: go test -v -timeout 10s ./...
+
   # The 'examples' package builds all the examples
   examples:
     name: examples
