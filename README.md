@@ -77,20 +77,20 @@ For more detailed examples see the [examples module](./examples).
    Windows in github actions because `os.Interrupt` has not been implemented. It not has not been tested on other OSes
    such as OpenBSD.
 
-7. *Why are there no dependencies?*
+5. *Why are there no dependencies?*
    This repository is intended to be a zero-dependency library. This makes it easier to maintain and prevents adding
    external vulnerabilities or bugs.
 
-8. *Why is there no logging?*
+6. *Why is there no logging?*
    There is no convention when it comes to logging, so it was considered best to avoid it. The code is simple enough
    that it seems unnecessary.
 
-9. *Can I use this in mircoservices?*
+7. *Can I use this in mircoservices?*
    Yes. This was original designed to ensure graceful shutdown in microservices.
 
-10. *Why is there another similar Safedown?*
-    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
-    service (while I was an employee), which I finally put inside its
-    own [Graphmasters Safedown repository](https://github.com/Graphmasters/safedown) (which I as of writing this I still
-    maintain). Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement
-    my own version from scratch with ideas from the original version because I wanted to expand upon some ideas.
+8. *Why is there another similar Safedown?*
+   I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
+   service (while I was an employee), which I finally put inside its
+   own [Graphmasters Safedown repository](https://github.com/Graphmasters/safedown) (which I as of writing this I still
+   maintain). Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement
+   my own version from scratch with ideas from the original version because I wanted to expand upon some ideas.
