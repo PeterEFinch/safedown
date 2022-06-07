@@ -32,7 +32,7 @@ jobs:
   test_os:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, ubuntu-20.04]
         go-version: [1.17, 1.18]
 
     name: test go${{ matrix.go-version }} on ${{ matrix.os }}
