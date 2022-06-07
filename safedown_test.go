@@ -94,7 +94,7 @@ func Example_signalReceived() {
 	go func(pid int) {
 		time.Sleep(time.Second)
 		process := os.Process{Pid: pid}
-		if err := process.Signal(os.Interrupt); err != nil {
+		if err := process.Signal(os.Kill); err != nil {
 			panic("unable to continue test: could not send signal to process")
 		}
 	}(os.Getpid())
@@ -275,13 +275,13 @@ func TestShutdownActions_Wait_withShutdown(t *testing.T) {
 // TestShutdownActions_Wait_withSignal tests that the wait method waits before
 // a signal and not after one.
 func TestShutdownActions_Wait_withSignal(t *testing.T) {
-	sa := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
+	sa := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Kill))
 
 	assertMethodIsTemporarilyBlocking(t, sa.Wait, 10*time.Millisecond, "wait function before signal received")
 
 	// The inclusion of the wait means that if wait still blocks after shutdown
 	// then this test will run into a timeout.
-	sendOSSignalToSelf(os.Interrupt)
+	sendOSSignalToSelf(os.Kill)
 	sa.Wait()
 }
 
@@ -294,8 +294,8 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal(
 
 	var counter1 int32
 	sa1 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
+		safedown.ShutdownOnSignals(os.Kill),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
 	)
 	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
 
@@ -306,7 +306,7 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal(
 	)
 	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, -1))
 
-	sendOSSignalToSelf(os.Interrupt)
+	sendOSSignalToSelf(os.Kill)
 
 	// The extra calls to Done are required because `sa2` will never be triggered.
 	wg.Done()
@@ -322,19 +322,19 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithSameSignal(t *te
 
 	var counter1 int32
 	sa1 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
+		safedown.ShutdownOnSignals(os.Kill),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
 	)
 	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
 
 	var counter2 int32
 	sa2 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
+		safedown.ShutdownOnSignals(os.Kill),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
 	)
 	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
 
-	sendOSSignalToSelf(os.Interrupt)
+	sendOSSignalToSelf(os.Kill)
 }
 
 // TestShutdownActions_signalReceived tests that shutdown will be called when
@@ -351,7 +351,7 @@ func TestShutdownActions_signalReceived_listenForAnySignal(t *testing.T) {
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Interrupt)
+	sendOSSignalToSelf(os.Kill)
 }
 
 // TestShutdownActions_signalReceived tests that shutdown will be called when
@@ -362,13 +362,13 @@ func TestShutdownActions_signalReceived_listenForOneSignal(t *testing.T) {
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.ShutdownOnSignals(os.Kill),
 	)
 
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Interrupt)
+	sendOSSignalToSelf(os.Kill)
 }
 
 // TestShutdownActions_signalReceived_withOnSignal tests that onSignal method
@@ -379,14 +379,14 @@ func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
+		safedown.ShutdownOnSignals(os.Kill),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
 	)
 
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Interrupt)
+	sendOSSignalToSelf(os.Kill)
 }
 
 // TestShutdownActions_SetPostShutdownStrategy_None tests that no actions will
