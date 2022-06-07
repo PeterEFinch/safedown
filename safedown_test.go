@@ -94,7 +94,7 @@ func Example_signalReceived() {
 	go func(pid int) {
 		time.Sleep(time.Second)
 		process := os.Process{Pid: pid}
-		if err := process.Signal(os.Kill); err != nil {
+		if err := process.Signal(os.Interrupt); err != nil {
 			panic("unable to continue test: could not send signal to process")
 		}
 	}(os.Getpid())
@@ -275,13 +275,13 @@ func TestShutdownActions_Wait_withShutdown(t *testing.T) {
 // TestShutdownActions_Wait_withSignal tests that the wait method waits before
 // a signal and not after one.
 func TestShutdownActions_Wait_withSignal(t *testing.T) {
-	sa := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Kill))
+	sa := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
 
 	assertMethodIsTemporarilyBlocking(t, sa.Wait, 10*time.Millisecond, "wait function before signal received")
 
 	// The inclusion of the wait means that if wait still blocks after shutdown
 	// then this test will run into a timeout.
-	sendOSSignalToSelf(os.Kill)
+	sendOSSignalToSelf(os.Interrupt)
 	sa.Wait()
 }
 
@@ -294,8 +294,8 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal(
 
 	var counter1 int32
 	sa1 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Kill),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
+		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
 	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
 
@@ -306,7 +306,7 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal(
 	)
 	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, -1))
 
-	sendOSSignalToSelf(os.Kill)
+	sendOSSignalToSelf(os.Interrupt)
 
 	// The extra calls to Done are required because `sa2` will never be triggered.
 	wg.Done()
@@ -322,19 +322,19 @@ func TestShutdownActions_signalReceived_multiShutdownActionsWithSameSignal(t *te
 
 	var counter1 int32
 	sa1 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Kill),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
+		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
 	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
 
 	var counter2 int32
 	sa2 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Kill),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
+		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
 	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
 
-	sendOSSignalToSelf(os.Kill)
+	sendOSSignalToSelf(os.Interrupt)
 }
 
 // TestShutdownActions_signalReceived tests that shutdown will be called when
@@ -351,7 +351,7 @@ func TestShutdownActions_signalReceived_listenForAnySignal(t *testing.T) {
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Kill)
+	sendOSSignalToSelf(os.Interrupt)
 }
 
 // TestShutdownActions_signalReceived tests that shutdown will be called when
@@ -362,13 +362,13 @@ func TestShutdownActions_signalReceived_listenForOneSignal(t *testing.T) {
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Kill),
+		safedown.ShutdownOnSignals(os.Interrupt),
 	)
 
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Kill)
+	sendOSSignalToSelf(os.Interrupt)
 }
 
 // TestShutdownActions_signalReceived_withOnSignal tests that onSignal method
@@ -379,14 +379,14 @@ func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
 	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
 	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Kill),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
+		safedown.ShutdownOnSignals(os.Interrupt),
+		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
 	)
 
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Kill)
+	sendOSSignalToSelf(os.Interrupt)
 }
 
 // TestShutdownActions_SetPostShutdownStrategy_None tests that no actions will
@@ -429,11 +429,12 @@ func TestShutdownActions_postShutdownStrategy_performCoordinatelyInBackground(t 
 	// will be added to a wait list. Due to the order the last will of the two
 	// will be done first.
 
-	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 20*time.Millisecond))
-	time.Sleep(5 * time.Millisecond)
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 5*time.Millisecond))
+	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 5))
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
+	time.Sleep(time.Millisecond)
 }
 
 // TestShutdownActions_postShutdownStrategy_performImmediately tests
@@ -456,11 +457,12 @@ func TestShutdownActions_postShutdownStrategy_performImmediately(t *testing.T) {
 	// condition to determine which will increment the counter first. Due to the
 	// delays/sleeps we obtain the expected values.
 
-	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 20*time.Millisecond))
-	time.Sleep(5 * time.Millisecond)
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 5*time.Millisecond))
+	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 5))
+	time.Sleep(time.Millisecond)
 }
 
 // TestShutdownActions_postShutdownStrategy_performImmediatelyInBackground tests
@@ -483,11 +485,12 @@ func TestShutdownActions_postShutdownStrategy_performImmediatelyInBackground(t *
 	// condition to determine which will increment the counter first. Due to the
 	// delays/sleeps we obtain the expected values.
 
-	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 5, 20*time.Millisecond))
-	time.Sleep(5 * time.Millisecond)
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 5, 5*time.Millisecond))
+	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
+	time.Sleep(time.Millisecond)
 }
 
 // assertCounterValue fails the test if the value stored in the counter does
