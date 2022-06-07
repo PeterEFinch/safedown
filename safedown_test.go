@@ -429,12 +429,11 @@ func TestShutdownActions_postShutdownStrategy_performCoordinatelyInBackground(t 
 	// will be added to a wait list. Due to the order the last will of the two
 	// will be done first.
 
-	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 5*time.Millisecond))
-	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 20*time.Millisecond))
+	time.Sleep(5 * time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 5))
-	time.Sleep(time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
-	time.Sleep(time.Millisecond)
 }
 
 // TestShutdownActions_postShutdownStrategy_performImmediately tests
@@ -457,12 +456,11 @@ func TestShutdownActions_postShutdownStrategy_performImmediately(t *testing.T) {
 	// condition to determine which will increment the counter first. Due to the
 	// delays/sleeps we obtain the expected values.
 
-	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 5*time.Millisecond))
-	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 3, 20*time.Millisecond))
+	time.Sleep(5 * time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
-	time.Sleep(time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 5))
-	time.Sleep(time.Millisecond)
 }
 
 // TestShutdownActions_postShutdownStrategy_performImmediatelyInBackground tests
@@ -485,12 +483,11 @@ func TestShutdownActions_postShutdownStrategy_performImmediatelyInBackground(t *
 	// condition to determine which will increment the counter first. Due to the
 	// delays/sleeps we obtain the expected values.
 
-	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 5, 5*time.Millisecond))
-	time.Sleep(time.Millisecond)
+	sa.AddActions(createTestableShutdownActionWithDelay(t, wg, &counter, 5, 20*time.Millisecond))
+	time.Sleep(5 * time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
-	time.Sleep(time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
-	time.Sleep(time.Millisecond)
 }
 
 // assertCounterValue fails the test if the value stored in the counter does
