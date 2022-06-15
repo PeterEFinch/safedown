@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/PeterEFinch/safedown"
@@ -13,7 +14,7 @@ func main() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
 		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
-		safedown.ShutdownOnAnySignal(),
+		safedown.ShutdownOnSignals(syscall.SIGTERM, syscall.SIGINT), // Replace with OS specific signals.
 	)
 
 	// Including `defer sa.Shutdown()` is not necessary but can be included to

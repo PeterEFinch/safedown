@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/PeterEFinch/safedown"
@@ -30,7 +31,7 @@ func main() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
 		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
-		safedown.ShutdownOnAnySignal(),
+		safedown.ShutdownOnSignals(syscall.SIGTERM, syscall.SIGINT), // Replace with OS specific signals.
 	)
 
 	// Including `defer sa.Shutdown()` is not necessary but can be included to 
@@ -65,8 +66,8 @@ For more detailed examples see the [examples module](./examples).
 
 2. *What signals should I listen for?*
    This depends on which OS is being used. For example, for code in docker images running alpine listening for at
-   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended. If unsure listening for any signal is reasonable, however,
-   not all signals will be caught e.g `os.Kill` isn't caught on ubuntu.
+   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended. Listening to all signals will likely catch and shutdown
+   in unwanted cases and not all signals can be caught e.g `os.Kill` isn't caught on ubuntu.
 
 3. *Should I use a post shutdown strategy?*
    This depends on the application and how it is initialised. The post shutdown strategy is usually only used when the
@@ -92,5 +93,5 @@ For more detailed examples see the [examples module](./examples).
    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
    service (while I was an employee), which I finally put inside its
    own [Graphmasters Safedown repository](https://github.com/Graphmasters/safedown) (which I as of writing this I still
-   maintain). Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement
-   my own version from scratch with ideas from the original version because I wanted to expand upon some ideas.
+   maintain). Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement my
+   own version from scratch with ideas from the original version because I wanted to expand upon some ideas.

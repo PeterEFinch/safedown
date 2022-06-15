@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/PeterEFinch/safedown"
@@ -24,7 +25,7 @@ func main() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
 		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
-		safedown.ShutdownOnAnySignal(),
+		safedown.ShutdownOnSignals(syscall.SIGTERM, syscall.SIGINT), // Replace with OS specific signals.
 		safedown.UseOnSignalFunc(func(signal os.Signal) {
 			log.Printf("Signal received: %s\n", signal.String())
 		}),
