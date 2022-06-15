@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/PeterEFinch/safedown"
@@ -30,7 +31,7 @@ func main() {
 	sa := safedown.NewShutdownActions(
 		safedown.UseOrder(safedown.FirstInLastDone), // This option is unnecessary because it is the default.
 		safedown.UsePostShutdownStrategy(safedown.PerformImmediately),
-		safedown.ShutdownOnAnySignal(),
+		safedown.ShutdownOnSignals(syscall.SIGTERM, syscall.SIGINT), // Replace with OS specific signals.
 	)
 
 	// Including `defer sa.Shutdown()` is not necessary but can be included to 
@@ -92,5 +93,5 @@ For more detailed examples see the [examples module](./examples).
    I originally wrote a version of safedown as package in personal project, which I rewrote inside a Graphmasters
    service (while I was an employee), which I finally put inside its
    own [Graphmasters Safedown repository](https://github.com/Graphmasters/safedown) (which I as of writing this I still
-   maintain). Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement
-   my own version from scratch with ideas from the original version because I wanted to expand upon some ideas.
+   maintain). Graphmasters and I decided they would make their version open source (yay) and I decided to reimplement my
+   own version from scratch with ideas from the original version because I wanted to expand upon some ideas.
