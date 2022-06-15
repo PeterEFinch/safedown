@@ -66,8 +66,8 @@ For more detailed examples see the [examples module](./examples).
 
 2. *What signals should I listen for?*
    This depends on which OS is being used. For example, for code in docker images running alpine listening for at
-   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended. If unsure listening for any signal is reasonable, however,
-   not all signals will be caught e.g `os.Kill` isn't caught on ubuntu.
+   least `syscall.SIGTERM` & `syscall.SIGINT` is recommended. Listening to all signals will likely catch and shutdown
+   in unwanted cases and not all signals can be caught e.g `os.Kill` isn't caught on ubuntu.
 
 3. *Should I use a post shutdown strategy?*
    This depends on the application and how it is initialised. The post shutdown strategy is usually only used when the
