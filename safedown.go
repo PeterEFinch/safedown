@@ -250,8 +250,10 @@ type config struct {
 // Option represents an option of the shutdown actions.
 type Option func(*config)
 
-// ShutdownOnAnySignal will enable shutdown to be triggered by any signal. To
-// trigger shutdown by a limited number of signals use ShutdownOnSignals.
+// ShutdownOnAnySignal will enable shutdown to be triggered by any signal.
+//
+// Using this option will likely lead to overzealous shutting down. It is
+// recommended to use the option ShutdownOnSignals with the signals of interest.
 //
 // This option will override ShutdownOnSignals if included after it.
 func ShutdownOnAnySignal() Option {
@@ -262,8 +264,9 @@ func ShutdownOnAnySignal() Option {
 }
 
 // ShutdownOnSignals will enable the shutdown to be triggered by any of the
-// signals included. To trigger shutdown on any signal use the option
-// ShutdownOnAnySignal.
+// signals included.
+//
+// The choice of signals depends on the operating system and use-case.
 //
 // This option will override ShutdownOnAnySignal if included after it.
 func ShutdownOnSignals(signals ...os.Signal) Option {
