@@ -5,10 +5,10 @@ go 1.19
 // Replace is used so that this module always uses the latest safedown code.
 // However, this means the version listed will often be incorrect.
 
-replace github.com/PeterEFinch/safedown latest => ./..
+replace github.com/PeterEFinch/safedown v0.2.3 => ./..
 
 require (
-	github.com/PeterEFinch/safedown latest
+	github.com/PeterEFinch/safedown v0.2.3
 	github.com/dgraph-io/badger/v3 v3.2103.5
 )
 
