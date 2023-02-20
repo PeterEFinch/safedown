@@ -67,6 +67,9 @@ jobs:
       - name: Change to examples module
         run: cd ./examples
 
+      - name: Go mod tidy # Required to have "latest" tag for safedown module in go.mod file
+        run: go mod tidy
+
       - name: Build examples
         working-directory: ./examples
         run: go build -v -o ./outputs/ ./...
