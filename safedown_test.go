@@ -228,6 +228,110 @@ func TestShutdownActions_Wait(t *testing.T) {
 	})
 }
 
+// TestUseOrder tests the use of the safedown.ShutdownOnAnySignal option.
+func TestShutdownOnAnySignal(t *testing.T) {
+	// Tests that the shutdown actions can still be shut down manually.
+	t.Run("shutdown", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions(safedown.ShutdownOnAnySignal())
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+		sa.Shutdown()
+	})
+
+	// Tests that shutdown will be called when a signal is received.
+	t.Run("signal", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions(safedown.ShutdownOnAnySignal())
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+		sendOSSignalToSelf(os.Interrupt)
+	})
+
+	// Tests that multiple shutdown actions can be initialised listing for the same
+	// signal and both of them shutdown.
+	t.Run("multiple_actions", func(t *testing.T) {
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		var counter1 int32
+		sa1 := safedown.NewShutdownActions(safedown.ShutdownOnAnySignal())
+		sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
+
+		var counter2 int32
+		sa2 := safedown.NewShutdownActions(safedown.ShutdownOnAnySignal())
+		sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
+
+		sendOSSignalToSelf(os.Interrupt)
+	})
+}
+
+// TestUseOrder tests the use of the safedown.ShutdownOnSignals option.
+func TestShutdownOnSignals(t *testing.T) {
+	// Tests that the shutdown actions can still be shut down manually.
+	t.Run("shutdown", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+		sa.Shutdown()
+	})
+
+	// Tests that shutdown will be called when a signal is received.
+	t.Run("signal", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+		sendOSSignalToSelf(os.Interrupt)
+	})
+
+	// Tests that multiple shutdown actions can be initialised listing for different
+	// signals and only one of them shutdown.
+	t.Run("multiple_shutdown_actions_listening_for_different_signals", func(t *testing.T) {
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		var counter1 int32
+		sa1 := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
+		sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
+
+		var counter2 int32
+		sa2 := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Kill))
+		sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, -1)) // This action must never be called
+
+		sendOSSignalToSelf(os.Interrupt)
+
+		// The extra call to Done are required because `sa2` will never be triggered.
+		wg.Done()
+	})
+
+	// Tests that multiple shutdown actions can be initialised listing for the same
+	// signal and both of them shutdown.
+	t.Run("multiple_shutdown_actions_listening_for_same_signal", func(t *testing.T) {
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		var counter1 int32
+		sa1 := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
+		sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
+
+		var counter2 int32
+		sa2 := safedown.NewShutdownActions(safedown.ShutdownOnSignals(os.Interrupt))
+		sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
+
+		sendOSSignalToSelf(os.Interrupt)
+	})
+}
+
 // TestUseOrder tests the use of the safedown.UseOnSignalFunc option.
 func TestUseOnSignalFunc(t *testing.T) {
 	// Tests that the function passed in the UseOnSignalFunc does nothing
@@ -425,129 +529,6 @@ func TestUsePostShutdownStrategy(t *testing.T) {
 		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 4))
 		time.Sleep(time.Millisecond)
 	})
-}
-
-// TestShutdownActions_Shutdown_withListening tests that the shutdown actions
-// can still be shut down manually while listening for signals.
-func TestShutdownActions_Shutdown_withListening(t *testing.T) {
-	var counter int32
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnAnySignal(),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, nil)),
-	)
-
-	// Done needs to be added because the onSignal function will never be called.
-	wg.Done()
-
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sa.Shutdown()
-}
-
-// TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal
-// tests that multiple shutdown actions can be initialised listing for different
-// signals and only one of them shutdown.
-func TestShutdownActions_signalReceived_multiShutdownActionsWithDifferentSignal(t *testing.T) {
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	var counter1 int32
-	sa1 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
-	)
-	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
-
-	var counter2 int32
-	sa2 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Kill),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Kill)),
-	)
-	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, -1))
-
-	sendOSSignalToSelf(os.Interrupt)
-
-	// The extra calls to Done are required because `sa2` will never be triggered.
-	wg.Done()
-	wg.Done()
-}
-
-// TestShutdownActions_signalReceived_multiShutdownActionsWithSameSignal
-// tests that multiple shutdown actions can be initialised listing for the same
-// signal and both of them shutdown.
-func TestShutdownActions_signalReceived_multiShutdownActionsWithSameSignal(t *testing.T) {
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	var counter1 int32
-	sa1 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
-	)
-	sa1.AddActions(createTestableShutdownAction(t, wg, &counter1, 1))
-
-	var counter2 int32
-	sa2 := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
-	)
-	sa2.AddActions(createTestableShutdownAction(t, wg, &counter2, 1))
-
-	sendOSSignalToSelf(os.Interrupt)
-}
-
-// TestShutdownActions_signalReceived tests that shutdown will be called when
-// a signal is received.
-func TestShutdownActions_signalReceived_listenForAnySignal(t *testing.T) {
-	var counter int32
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnAnySignal(),
-	)
-
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Interrupt)
-}
-
-// TestShutdownActions_signalReceived tests that shutdown will be called when
-// a signal is received.
-func TestShutdownActions_signalReceived_listenForOneSignal(t *testing.T) {
-	var counter int32
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-	)
-
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Interrupt)
-}
-
-// TestShutdownActions_signalReceived_withOnSignal tests that onSignal method
-// and shutdown will be called when a signal is received.
-func TestShutdownActions_signalReceived_withOnSignal(t *testing.T) {
-	var counter int32
-	wg := &sync.WaitGroup{}
-	defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
-
-	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnSignals(os.Interrupt),
-		safedown.UseOnSignalFunc(createTestableOnSignalFunction(t, wg, os.Interrupt)),
-	)
-
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
-	sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
-	sendOSSignalToSelf(os.Interrupt)
 }
 
 // assertCounterValue fails the test if the value stored in the counter does
