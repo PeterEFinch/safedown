@@ -5,19 +5,27 @@ run:
 linters:
   disable-all: true
   enable:
-    - deadcode # Detects unused code
+    - asciicheck # Detects non-ASCII identifiers
+    - bidichk # Detects dangerous unicode character sequence
+    - cyclop # Detects high cyclomatic complexity
+    - decorder # Check declaration order and count of types, constants, variables and functions
+    - depguard # Detects if import
     - errcheck # Detects unchecked errors
     - exportloopref # Detects scope issues
     - gochecknoglobals # Detects global variables
-    - gocritic # Activated to make code cleaner
-    - gosimple # Activated to make code simpler
+    - gochecknoinits # Detects init functions
+    - gocritic # Enabled to make code cleaner
+    - gofumpt # Enabled to make code cleaner
+    - goimports # Enabled to make code cleaner
+    - gosimple # Enabled to make code simpler
     - govet # Detects suspicious constructs
     - ineffassign # Detects unused assigned variables
+    - nilerr # Detects nil returns without an error
     - staticcheck # Static analysis checks
-    - structcheck # Finds unused struct fields
+    - testableexamples # Ensures examples are testable
     - typecheck # type-check
+    - unparam # Reports unused function parameters
     - unused # Detects unused constants, variables, functions and types
-    - varcheck # Detects unused global variables and constants
 
 service:
-  golangci-lint-version: 1.45.x
+  golangci-lint-version: 1.53.x
