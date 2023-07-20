@@ -170,6 +170,50 @@ func TestNewShutdownActions(t *testing.T) {
 	})
 }
 
+// TestShutdownActions_AddActions tests the behaviour of the AddActions.
+func TestShutdownActions_AddActions(t *testing.T) {
+	// Testing that added actions are performed on shutdown
+	t.Run("single", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions()
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+		sa.Shutdown()
+	})
+
+	// Testing that multiple actions can be added in one call
+	t.Run("multiple_inputs", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions()
+
+		sa.AddActions(
+			createTestableShutdownAction(t, wg, &counter, 3),
+			createTestableShutdownAction(t, wg, &counter, 2),
+			createTestableShutdownAction(t, wg, &counter, 1),
+		)
+		sa.Shutdown()
+	})
+
+	// Tests that actions can be added via multiple calls
+	t.Run("multiple calls", func(t *testing.T) {
+		var counter int32
+		wg := &sync.WaitGroup{}
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedown.NewShutdownActions()
+
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 3))
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 2))
+		sa.AddActions(createTestableShutdownAction(t, wg, &counter, 1))
+		sa.Shutdown()
+	})
+}
+
 // TestShutdownActions_Shutdown tests the behaviour of the shutdown method.
 func TestShutdownActions_Shutdown(t *testing.T) {
 	// Testing that all shutdown actions are performed.
