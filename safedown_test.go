@@ -552,16 +552,11 @@ func TestUsePostShutdownStrategy(t *testing.T) {
 		sa.AddActions(createTestableShutdownAction(t, wg, counter, 1))
 		sa.Shutdown()
 
-		// All actions will start immediately in a go routine. It is a race
-		// condition to determine which will increment the counter first. Due to the
-		// delays/sleeps we obtain the expected values.
-
 		sa.AddActions(createTestableShutdownActionWithDelay(t, wg, counter, 3, 5*time.Millisecond))
-		time.Sleep(time.Millisecond)
-		sa.AddActions(createTestableShutdownAction(t, wg, counter, 4))
-		time.Sleep(time.Millisecond)
-		sa.AddActions(createTestableShutdownAction(t, wg, counter, 5))
-		time.Sleep(time.Millisecond)
+		sa.AddActions(
+			createTestableShutdownAction(t, wg, counter, 5),
+			createTestableShutdownAction(t, wg, counter, 4),
+		)
 	})
 
 	// Tests that actions can be performed after shutdown has been called in a way that
@@ -581,11 +576,14 @@ func TestUsePostShutdownStrategy(t *testing.T) {
 		// condition to determine which will increment the counter first. Due to the
 		// delays/sleeps we obtain the expected values.
 
-		sa.AddActions(createTestableShutdownActionWithDelay(t, wg, counter, 5, 5*time.Millisecond))
+		sa.AddActions(createTestableShutdownActionWithDelay(t, wg, counter, 6, 5*time.Millisecond))
 		time.Sleep(time.Millisecond)
 		sa.AddActions(createTestableShutdownAction(t, wg, counter, 3))
 		time.Sleep(time.Millisecond)
-		sa.AddActions(createTestableShutdownAction(t, wg, counter, 4))
+		sa.AddActions(
+			createTestableShutdownAction(t, wg, counter, 5),
+			createTestableShutdownAction(t, wg, counter, 4),
+		)
 		time.Sleep(time.Millisecond)
 	})
 }
