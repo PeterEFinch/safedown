@@ -464,6 +464,23 @@ func TestUseOrder(t *testing.T) {
 		sa.AddActions(createTestableShutdownAction(t, wg, counter, 3))
 		sa.Shutdown()
 	})
+
+	// Tests that  if an invalid order is used the option will panic.
+	t.Run("invalid_order", func(t *testing.T) {
+		defer func() {
+			var panicked bool
+			if r := recover(); r != nil {
+				panicked = true
+			}
+
+			if !panicked {
+				t.Log("safedown.UseOrder was expected to panic")
+				t.Fail()
+			}
+		}()
+
+		safedown.UseOrder(42)
+	})
 }
 
 // TestUseOrder tests the use of the safedown.UsePostShutdownStrategy option.
@@ -554,9 +571,7 @@ func TestUsePostShutdownStrategy(t *testing.T) {
 		wg := new(sync.WaitGroup)
 		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-		sa := safedown.NewShutdownActions(
-			safedown.UsePostShutdownStrategy(safedown.PerformImmediatelyInBackground),
-		)
+		sa := safedown.NewShutdownActions(safedown.UsePostShutdownStrategy(safedown.PerformImmediatelyInBackground))
 
 		sa.AddActions(createTestableShutdownAction(t, wg, counter, 2))
 		sa.AddActions(createTestableShutdownAction(t, wg, counter, 1))
