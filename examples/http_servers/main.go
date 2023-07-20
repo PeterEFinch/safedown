@@ -40,7 +40,6 @@ func main() {
 
 	// Wait waits for all the goroutines to have ended.
 	wg.Wait()
-
 }
 
 func startHTTPServerA(wg *sync.WaitGroup, sa *safedown.ShutdownActions, address string) {
