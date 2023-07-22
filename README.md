@@ -9,6 +9,8 @@ Safedown is like defer but more graceful and coordinated.
 </em>
 </p>
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/PeterEFinch/safedown.svg)](https://pkg.go.dev/github.com/PeterEFinch/safedown)
+
 ### Quick Start
 
 The shutdown actions are initialised through its constructor. Methods are added (in this case `cancel`) which will be
