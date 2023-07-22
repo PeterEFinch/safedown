@@ -1,3 +1,11 @@
+// Package safedown_test contains all tests and examples for the
+// safedown package.
+//
+// Due to the interaction of different methods, there will be
+// duplications of tests cases. For example, testing that an
+// action added via AddAction is performed when calling
+// Shutdown occurs in the test for AddAction and Shutdown,
+// although the description might differ slight.
 package safedown_test
 
 import (
@@ -172,7 +180,7 @@ func TestNewShutdownActions(t *testing.T) {
 
 // TestShutdownActions_AddActions tests the behaviour of the AddActions.
 func TestShutdownActions_AddActions(t *testing.T) {
-	// Testing that added actions are performed on shutdown
+	// Testing that a single added action is performed on shutdown
 	t.Run("single", func(t *testing.T) {
 		counter := new(atomic.Int32)
 		wg := new(sync.WaitGroup)
@@ -183,7 +191,8 @@ func TestShutdownActions_AddActions(t *testing.T) {
 		sa.Shutdown()
 	})
 
-	// Testing that multiple actions can be added in one call
+	// Testing that multiple actions added in one call are performed
+	// on shutdown.
 	t.Run("multiple_inputs", func(t *testing.T) {
 		counter := new(atomic.Int32)
 		wg := new(sync.WaitGroup)
@@ -199,7 +208,8 @@ func TestShutdownActions_AddActions(t *testing.T) {
 		sa.Shutdown()
 	})
 
-	// Tests that actions can be added via multiple calls
+	// Testing that actions added in multiple call are performed
+	// on shutdown.
 	t.Run("multiple calls", func(t *testing.T) {
 		counter := new(atomic.Int32)
 		wg := new(sync.WaitGroup)
