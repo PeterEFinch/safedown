@@ -22,81 +22,9 @@ import (
 
 // region Examples
 
-// Example_firstInFirstDone demonstrates the "first in, first done"
-// order.
-func Example_firstInFirstDone() {
-	sa := safedown.NewShutdownActions(
-		safedown.UseOrder(safedown.FirstInFirstDone),
-	)
-
-	sa.AddActions(func() {
-		fmt.Println("The first action added will be done first ...")
-	})
-	sa.AddActions(func() {
-		fmt.Println("... and the last action added will be done last.")
-	})
-
-	sa.Shutdown()
-
-	// Output:
-	// The first action added will be done first ...
-	// ... and the last action added will be done last.
-}
-
-// Example_firstInLastDone demonstrates the "first in, last done"
-// order.
-func Example_firstInLastDone() {
-	sa := safedown.NewShutdownActions(
-		safedown.UseOrder(safedown.FirstInLastDone),
-	)
-
-	sa.AddActions(func() {
-		fmt.Println("... and the first action added will be done last.")
-	})
-	sa.AddActions(func() {
-		fmt.Println("The last action added will be done first ...")
-	})
-
-	sa.Shutdown()
-
-	// Output:
-	// The last action added will be done first ...
-	// ... and the first action added will be done last.
-}
-
-// Example_postShutdownStrategy demonstrates how to set a post shutdown strategy
-// and its consequences.
-func Example_postShutdownStrategy() {
-	sa := safedown.NewShutdownActions(
-		safedown.UsePostShutdownStrategy(safedown.PerformCoordinatelyInBackground),
-	)
-
-	sa.AddActions(func() {
-		fmt.Println("... and the first action added will be done after that.")
-	})
-	sa.AddActions(func() {
-		fmt.Println("The last action added will be done first ...")
-	})
-
-	sa.Shutdown()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	sa.AddActions(func() {
-		fmt.Println("The action added after shutdown is also done (provided we wait a little).")
-		wg.Done()
-	})
-	wg.Wait()
-
-	// Output:
-	// The last action added will be done first ...
-	// ... and the first action added will be done after that.
-	// The action added after shutdown is also done (provided we wait a little).
-}
-
-// Example_signalReceived demonstrates how setting up the safedown's
-// shutdown actions works when a signal is received.
-func Example_signalReceived() {
+// Example demonstrates how setting up the safedown's shutdown actions works
+// when a signal is received.
+func Example() {
 	// This will send an interrupt signal after a second to simulate a signal
 	// being sent from the outside.
 	go func(pid int) {
@@ -108,7 +36,7 @@ func Example_signalReceived() {
 	}(os.Getpid())
 
 	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnAnySignal(),
+		safedown.ShutdownOnSignals(os.Interrupt),
 		safedown.UseOnSignalFunc(func(signal os.Signal) {
 			fmt.Printf("Signal received: %s\n", signal.String())
 		}),
@@ -138,9 +66,9 @@ func Example_signalReceived() {
 // Example_signalNotReceived demonstrates how setting up the safedown's
 // shutdown actions works when no signal is received (and the program can
 // terminate of its own accord).
-func Example_signalNotReceived() {
+func Example_noSignal() {
 	sa := safedown.NewShutdownActions(
-		safedown.ShutdownOnAnySignal(),
+		safedown.ShutdownOnSignals(os.Interrupt),
 		safedown.UseOnSignalFunc(func(signal os.Signal) {
 			fmt.Printf("Signal received: %s\n", signal.String())
 		}),
@@ -164,6 +92,95 @@ func Example_signalNotReceived() {
 	// Processing starting
 	// Ticker ticked
 	// Finished
+}
+
+// ExampleShutdownActions_Shutdown demonstrates the default
+// shutdown behaviour.
+func ExampleShutdownActions_Shutdown() {
+	sa := safedown.NewShutdownActions()
+
+	sa.AddActions(func() {
+		fmt.Println("The action is performed after shutdown is called.")
+	})
+
+	fmt.Println("Code runs before shutdown is called.")
+	sa.Shutdown()
+
+	// Output:
+	// Code runs before shutdown is called.
+	// The action is performed after shutdown is called.
+}
+
+// ExampleUseOrder_firstInFirstDone demonstrates the "first in, first done"
+// order.
+func ExampleUseOrder_firstInFirstDone() {
+	sa := safedown.NewShutdownActions(
+		safedown.UseOrder(safedown.FirstInFirstDone),
+	)
+
+	sa.AddActions(func() {
+		fmt.Println("The first action added will be done first ...")
+	})
+	sa.AddActions(func() {
+		fmt.Println("... and the last action added will be done last.")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The first action added will be done first ...
+	// ... and the last action added will be done last.
+}
+
+// ExampleUseOrder_firstInFirstDone demonstrates the "first in, last done"
+// order.
+func ExampleUseOrder_firstInLastDone() {
+	sa := safedown.NewShutdownActions(
+		safedown.UseOrder(safedown.FirstInLastDone),
+	)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done last.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done last.
+}
+
+// ExampleUsePostShutdownStrategy demonstrates how to set a post shutdown strategy
+// and its consequences.
+func ExampleUsePostShutdownStrategy() {
+	sa := safedown.NewShutdownActions(
+		safedown.UsePostShutdownStrategy(safedown.PerformCoordinatelyInBackground),
+	)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done after that.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	sa.AddActions(func() {
+		fmt.Println("The action added after shutdown is also done (provided we wait a little).")
+		wg.Done()
+	})
+	wg.Wait()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done after that.
+	// The action added after shutdown is also done (provided we wait a little).
 }
 
 // endregion
