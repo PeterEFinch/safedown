@@ -26,10 +26,11 @@ const (
 type PostShutdownStrategy uint8
 
 const (
-	DoNothing                       PostShutdownStrategy = iota // DoNothing means that any action added after shutdown has been trigger will not be done.
-	PerformImmediately                                          // PerformImmediately means that any action added after shutdown will be performed immediately (and block the AddAction method).
-	PerformImmediatelyInBackground                              // PerformImmediatelyInBackground means that any action added after shutdown will be performed immediately in a go routine.
-	PerformCoordinatelyInBackground                             // PerformCoordinatelyInBackground means that the shutdown actions will ATTEMPT to coordinate the actions added with all other actions which have already been added.
+	DoNothing                        PostShutdownStrategy = iota // DoNothing means that any action added after shutdown has been trigger will not be done.
+	PerformImmediately                                           // PerformImmediately means that any action added after shutdown will be performed immediately (and block the AddAction method).
+	PerformImmediatelyInBackground                               // PerformImmediatelyInBackground means that any action added after shutdown will be performed immediately in a go routine.
+	PerformCoordinatelyInBackground                              // PerformCoordinatelyInBackground means that the shutdown actions will ATTEMPT to coordinate the actions added with all other actions which have already been added.
+	invalidPostShutdownStrategyValue                             // invalidPostShutdownStrategyValue is a constant used to validate the value of the post shutdown strategy.
 )
 
 // ShutdownActions represent a set of actions that are performed, i.e. functions
@@ -302,6 +303,10 @@ func UseOrder(order Order) Option {
 // The strategy is usually only used when the Shutdown has been triggered during
 // the initialisation of an application.
 func UsePostShutdownStrategy(strategy PostShutdownStrategy) Option {
+	if strategy >= invalidPostShutdownStrategyValue {
+		panic("shutdown option UsePostShutdownStrategy set with invalid strategy")
+	}
+
 	return func(o *config) {
 		o.strategy = strategy
 	}

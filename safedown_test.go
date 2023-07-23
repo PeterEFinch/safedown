@@ -613,6 +613,23 @@ func TestUsePostShutdownStrategy(t *testing.T) {
 		)
 		time.Sleep(time.Millisecond)
 	})
+
+	// Tests that if an invalid strategy is used the option will panic.
+	t.Run("invalid_strategy", func(t *testing.T) {
+		defer func() {
+			var panicked bool
+			if r := recover(); r != nil {
+				fmt.Println(r)
+			}
+
+			if !panicked {
+				t.Log("safedown.UseOrder was expected to panic")
+				t.Fail()
+			}
+		}()
+
+		safedown.UsePostShutdownStrategy(42)
+	})
 }
 
 // assertCounterValue fails the test if the value stored in the counter does
