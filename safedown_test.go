@@ -619,11 +619,11 @@ func TestUsePostShutdownStrategy(t *testing.T) {
 		defer func() {
 			var panicked bool
 			if r := recover(); r != nil {
-				fmt.Println(r)
+				panicked = true
 			}
 
 			if !panicked {
-				t.Log("safedown.UseOrder was expected to panic")
+				t.Log("safedown.UsePostShutdownStrategy was expected to panic")
 				t.Fail()
 			}
 		}()
