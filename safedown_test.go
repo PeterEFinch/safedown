@@ -100,17 +100,15 @@ func ExampleShutdownActions_Shutdown() {
 	sa := safedown.NewShutdownActions()
 
 	sa.AddActions(func() {
-		fmt.Println("... and the first action added will be done last.")
-	})
-	sa.AddActions(func() {
-		fmt.Println("The last action added will be done first ...")
+		fmt.Println("The action is performed after shutdown is called.")
 	})
 
+	fmt.Println("Code runs before shutdown is called.")
 	sa.Shutdown()
 
 	// Output:
-	// The last action added will be done first ...
-	// ... and the first action added will be done last.
+	// Code runs before shutdown is called.
+	// The action is performed after shutdown is called.
 }
 
 // ExampleUseOrder_firstInFirstDone demonstrates the "first in, first done"
@@ -132,6 +130,27 @@ func ExampleUseOrder_firstInFirstDone() {
 	// Output:
 	// The first action added will be done first ...
 	// ... and the last action added will be done last.
+}
+
+// ExampleUseOrder_firstInFirstDone demonstrates the "first in, last done"
+// order.
+func ExampleUseOrder_firstInLastDone() {
+	sa := safedown.NewShutdownActions(
+		safedown.UseOrder(safedown.FirstInLastDone),
+	)
+
+	sa.AddActions(func() {
+		fmt.Println("... and the first action added will be done last.")
+	})
+	sa.AddActions(func() {
+		fmt.Println("The last action added will be done first ...")
+	})
+
+	sa.Shutdown()
+
+	// Output:
+	// The last action added will be done first ...
+	// ... and the first action added will be done last.
 }
 
 // ExampleUsePostShutdownStrategy demonstrates how to set a post shutdown strategy
