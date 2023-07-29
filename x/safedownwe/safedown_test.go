@@ -2,6 +2,7 @@ package safedownwe_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -441,6 +442,116 @@ func TestShutdownOnSignals(t *testing.T) {
 	})
 }
 
+// TestUseErrorChan tests the use of the safedownwe.TestUseErrorChan option.
+func TestUseErrorChan(t *testing.T) {
+	// Tests that if a single error occurs it is sent to the
+	// error channel.
+	t.Run("single_errors", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		ch := make(chan error, 1)
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(ch),
+		)
+
+		err := fmt.Errorf("error")
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, err))
+		sa.Shutdown()
+
+		assertErrorsInChan(t, ch, err)
+	})
+
+	// Tests that if a multiples error occurs, they are sent to the
+	// error channel in the expected order.
+	t.Run("multiple_errors", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		ch := make(chan error, 2)
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(ch),
+		)
+
+		err1 := fmt.Errorf("error 1")
+		err2 := fmt.Errorf("error 2")
+
+		sa.AddActions(createTestableShutdownAction(t, wg, counter, 4))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 3, nil))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 2, err2))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, err1))
+		sa.Shutdown()
+
+		assertErrorsInChan(t, ch, err1, err2)
+	})
+
+	t.Run("post_shutdown_error", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		ch := make(chan error, 1)
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(ch),
+			safedownwe.UsePostShutdownStrategy(safedownwe.PerformImmediately),
+		)
+		sa.Shutdown()
+
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, fmt.Errorf("error")))
+		assertErrorsInChan(t, ch)
+	})
+
+	// Tests that the shutdown is blocked by the channel if
+	// there are too many errors relative to the capacity.
+	t.Run("channel_blocks", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(3*time.Second))
+
+		ch := make(chan error, 1)
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(ch),
+		)
+
+		err1 := fmt.Errorf("error 1")
+		err2 := fmt.Errorf("error 2")
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 2, err2))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, err1))
+
+		assertMethodIsTemporarilyBlocking(t, sa.Shutdown, time.Second, "shutdown must block when insufficient channel capacity")
+		assertErrorsInChan(t, ch, err1, err2)
+	})
+
+	// Tests that the channel closes.
+	t.Run("channel_closes", func(t *testing.T) {
+		ch := make(chan error, 0)
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(ch),
+		)
+		sa.Shutdown()
+		assertErrorsInChan(t, ch)
+	})
+
+	// Tests that if a nil channel is used the option will panic.
+	t.Run("nil_channel", func(t *testing.T) {
+		defer func() {
+			var panicked bool
+			if r := recover(); r != nil {
+				panicked = true
+			}
+
+			if !panicked {
+				t.Log("safedownwe.UseErrorChan was expected to panic")
+				t.Fail()
+			}
+		}()
+
+		safedownwe.UseErrorChan(nil)
+	})
+}
+
 // TestUseOrder tests the use of the safedownwe.UseOnSignalFunc option.
 func TestUseOnSignalFunc(t *testing.T) {
 	// Tests that the function passed in the UseOnSignalFunc does nothing
@@ -680,6 +791,35 @@ func assertCounterValue(t *testing.T, counter *atomic.Int32, expectedValue int32
 
 	t.Logf("%s: mismatch between expected value (%d) and actual value (%d)", scenario, expectedValue, actualValue)
 	t.FailNow()
+}
+
+// assertErrorsInChan fails the test if the err channel does not contain
+// the given errors (in the given order).
+func assertErrorsInChan(t *testing.T, errCh <-chan error, errs ...error) {
+	var count int
+	for {
+		actualErr, ok := <-errCh
+		if !ok {
+			if count != len(errs) {
+				t.Logf("mismatch between expected number of errors (%d) and actual number (%d)", len(errs), count)
+				t.Fail()
+			}
+			return
+		}
+
+		if count >= len(errs) {
+			t.Log("more errors in channel than expected")
+			t.Fail()
+			return
+		}
+
+		if expectedErr := errs[count]; !errors.Is(actualErr, expectedErr) {
+			t.Logf("mismatch between expected error (%v) and actual error (%v) in position %d", expectedErr, actualErr, count)
+			t.Fail()
+		}
+
+		count++
+	}
 }
 
 // assertMethodIsTemporarilyBlocking checks that the method provided blocks for

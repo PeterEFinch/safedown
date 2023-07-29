@@ -40,7 +40,8 @@ const (
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
 type ShutdownActions struct {
-	actions      []func()             // actions contains the functions to be called on shutdown
+	actions      []func() error       // actions contains the functions to be called on shutdown
+	errorCh      chan<- error         // errorCh contains a channel where errors from actions are sent
 	order        Order                // order represents the order actions will be performed on shutdown
 	onSignalFunc func(os.Signal)      // onSignalFunc gets called if a signal is received
 	strategy     PostShutdownStrategy // strategy contains the post shutdown strategy
@@ -48,6 +49,7 @@ type ShutdownActions struct {
 	mutex                     *sync.Mutex   // mutex prevents clashes when shared across goroutines
 	isPerformingStoredActions bool          // isPerformingStoredActions is true if and only if the stored actions are being performed or just about to be performed
 	isShutdownTriggered       bool          // isShutdownTriggered is true if and only if shutdown has been triggered
+	isShutdownComplete        bool          // isShutdownComplete is true if shutdown has been triggered and all stored actions have been performed
 	shutdownCh                chan struct{} // shutdownCh will be closed when shutdown has been completed
 	shutdownOnce              *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
 	stopListeningCh           chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
@@ -65,6 +67,7 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 	}
 
 	sa := &ShutdownActions{
+		errorCh:      config.errorCh,
 		order:        config.order,
 		onSignalFunc: config.onSignalFunc,
 		strategy:     config.strategy,
@@ -85,6 +88,21 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 // If Shutdown has already been called or trigger via a signal then the handling
 // of the actions will depend on the post-shutdown strategy.
 func (sa *ShutdownActions) AddActions(actions ...func()) {
+	converted := make([]func() error, len(actions))
+	for i := range actions {
+		action := actions[i]
+		converted[i] = func() error { action(); return nil }
+	}
+
+	sa.AddActionsWithErrors(converted...)
+}
+
+// AddActionsWithErrors adds actions that return that are to be performed when
+// Shutdown is called.
+//
+// If Shutdown has already been called or trigger via a signal then the handling
+// of the actions will depend on the post-shutdown strategy.
+func (sa *ShutdownActions) AddActionsWithErrors(actions ...func() error) {
 	sa.mutex.Lock()
 	// This is the pre-shutdown phase
 	if !sa.isShutdownTriggered {
@@ -121,21 +139,6 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	}
 }
 
-// AddActionsWithErrors adds actions that return that are to be performed when
-// Shutdown is called.
-//
-// If Shutdown has already been called or trigger via a signal then the handling
-// of the actions will depend on the post-shutdown strategy.
-func (sa *ShutdownActions) AddActionsWithErrors(actions ...func() error) {
-	converted := make([]func(), len(actions))
-	for i := range actions {
-		action := actions[i]
-		converted[i] = func() { _ = action() }
-	}
-
-	sa.AddActions(converted...)
-}
-
 // Shutdown will perform all actions that have been added.
 //
 // This is an idempotent method and successive calls will have no affect.
@@ -165,7 +168,7 @@ func (sa *ShutdownActions) onSignal(received os.Signal) {
 //
 // The word `loose` was used to distinguish it from the performing of the
 // actions stored inside the ShutdownActions struct.
-func (sa *ShutdownActions) performLooseActions(actions []func()) {
+func (sa *ShutdownActions) performLooseActions(actions []func() error) {
 	if sa.order == FirstInLastDone {
 		for left, right := 0, len(actions)-1; left < right; left, right = left+1, right-1 {
 			actions[left], actions[right] = actions[right], actions[left]
@@ -173,7 +176,7 @@ func (sa *ShutdownActions) performLooseActions(actions []func()) {
 	}
 
 	for i := range actions {
-		actions[i]()
+		sa.recordError(actions[i]())
 	}
 }
 
@@ -190,11 +193,12 @@ func (sa *ShutdownActions) performStoredActions() {
 	// until all stored actions have been performed. This is essential for the
 	// functionality .shutdown() method.
 	for {
-		var action func()
+		var action func() error
 		sa.mutex.Lock()
 		switch {
 		case len(sa.actions) == 0:
 			sa.isPerformingStoredActions = false
+			sa.isShutdownComplete = true
 			sa.mutex.Unlock()
 			return
 		case sa.order == FirstInLastDone:
@@ -206,8 +210,20 @@ func (sa *ShutdownActions) performStoredActions() {
 		}
 		sa.mutex.Unlock()
 
-		action()
+		sa.recordError(action())
 	}
+}
+
+func (sa *ShutdownActions) recordError(err error) {
+	if err == nil || sa.errorCh == nil {
+		return
+	}
+
+	sa.mutex.Lock()
+	if !sa.isShutdownComplete {
+		sa.errorCh <- err
+	}
+	sa.mutex.Unlock()
 }
 
 func (sa *ShutdownActions) shutdown() {
@@ -220,6 +236,10 @@ func (sa *ShutdownActions) shutdown() {
 		sa.mutex.Unlock()
 
 		sa.performStoredActions()
+
+		if sa.errorCh != nil {
+			close(sa.errorCh)
+		}
 		close(sa.shutdownCh)
 	})
 }
@@ -256,6 +276,7 @@ func (sa *ShutdownActions) stopListening() {
 
 // config represents configuration for initialising the shutdown actions.
 type config struct {
+	errorCh             chan<- error         // errorCh is the channel that all errors will be sent to
 	order               Order                // order represents the order actions will be performed on shutdown
 	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
 	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
@@ -289,6 +310,19 @@ func ShutdownOnSignals(signals ...os.Signal) Option {
 	return func(o *config) {
 		o.shutdownOnSignals = signals
 		o.shutdownOnAnySignal = false
+	}
+}
+
+// UseErrorChan includes an error channel that errors from actions will
+// be sent to. The channel is closed when the shutdown is completed. Any
+// error from an action executed after shutdown is complete is discarded.
+func UseErrorChan(ch chan<- error) Option {
+	if ch == nil {
+		panic("channel must not be nil")
+	}
+
+	return func(c *config) {
+		c.errorCh = ch
 	}
 }
 
