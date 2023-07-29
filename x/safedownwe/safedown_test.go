@@ -453,7 +453,7 @@ func TestUseErrorChan(t *testing.T) {
 
 		ch := make(chan error, 1)
 		sa := safedownwe.NewShutdownActions(
-			safedownwe.UseErrorChan(ch),
+			safedownwe.UseErrorChan(ch, false),
 		)
 
 		err := fmt.Errorf("error")
@@ -472,7 +472,7 @@ func TestUseErrorChan(t *testing.T) {
 
 		ch := make(chan error, 2)
 		sa := safedownwe.NewShutdownActions(
-			safedownwe.UseErrorChan(ch),
+			safedownwe.UseErrorChan(ch, false),
 		)
 
 		err1 := fmt.Errorf("error 1")
@@ -494,7 +494,7 @@ func TestUseErrorChan(t *testing.T) {
 
 		ch := make(chan error, 1)
 		sa := safedownwe.NewShutdownActions(
-			safedownwe.UseErrorChan(ch),
+			safedownwe.UseErrorChan(ch, false),
 			safedownwe.UsePostShutdownStrategy(safedownwe.PerformImmediately),
 		)
 		sa.Shutdown()
@@ -512,7 +512,7 @@ func TestUseErrorChan(t *testing.T) {
 
 		ch := make(chan error, 1)
 		sa := safedownwe.NewShutdownActions(
-			safedownwe.UseErrorChan(ch),
+			safedownwe.UseErrorChan(ch, false),
 		)
 
 		err1 := fmt.Errorf("error 1")
@@ -528,10 +528,32 @@ func TestUseErrorChan(t *testing.T) {
 	t.Run("channel_closes", func(t *testing.T) {
 		ch := make(chan error, 0)
 		sa := safedownwe.NewShutdownActions(
-			safedownwe.UseErrorChan(ch),
+			safedownwe.UseErrorChan(ch, false),
 		)
 		sa.Shutdown()
 		assertErrorsInChan(t, ch)
+	})
+
+	// Tests that the shutdown is blocked by the channel if
+	// there are too many errors relative to the capacity.
+	t.Run("discard_overflow", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(3*time.Second))
+
+		ch := make(chan error, 2)
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(ch, true),
+		)
+
+		err1 := fmt.Errorf("error 1")
+		err2 := fmt.Errorf("error 2")
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 3, fmt.Errorf("discarded error")))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 2, err2))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, err1))
+		sa.Shutdown()
+
+		assertErrorsInChan(t, ch, err1, err2)
 	})
 
 	// Tests that if a nil channel is used the option will panic.
@@ -548,7 +570,7 @@ func TestUseErrorChan(t *testing.T) {
 			}
 		}()
 
-		safedownwe.UseErrorChan(nil)
+		safedownwe.UseErrorChan(nil, false)
 	})
 }
 

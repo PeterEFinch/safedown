@@ -40,11 +40,12 @@ const (
 // ShutdownActions must always be initialised using the NewShutdownActions
 // function.
 type ShutdownActions struct {
-	actions      []func() error       // actions contains the functions to be called on shutdown
-	errorCh      chan<- error         // errorCh contains a channel where errors from actions are sent
-	order        Order                // order represents the order actions will be performed on shutdown
-	onSignalFunc func(os.Signal)      // onSignalFunc gets called if a signal is received
-	strategy     PostShutdownStrategy // strategy contains the post shutdown strategy
+	actions              []func() error       // actions contains the functions to be called on shutdown
+	errorCh              chan<- error         // errorCh contains a channel where errors from actions are sent
+	discardErrorOverflow bool                 // discardErrorOverflow determines if errors should be discarded if the len of the channel will exceed the capacity
+	order                Order                // order represents the order actions will be performed on shutdown
+	onSignalFunc         func(os.Signal)      // onSignalFunc gets called if a signal is received
+	strategy             PostShutdownStrategy // strategy contains the post shutdown strategy
 
 	mutex                     *sync.Mutex   // mutex prevents clashes when shared across goroutines
 	isPerformingStoredActions bool          // isPerformingStoredActions is true if and only if the stored actions are being performed or just about to be performed
@@ -67,10 +68,11 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 	}
 
 	sa := &ShutdownActions{
-		errorCh:      config.errorCh,
-		order:        config.order,
-		onSignalFunc: config.onSignalFunc,
-		strategy:     config.strategy,
+		errorCh:              config.errorCh,
+		discardErrorOverflow: config.discardErrorOverflow,
+		order:                config.order,
+		onSignalFunc:         config.onSignalFunc,
+		strategy:             config.strategy,
 
 		mutex:             &sync.Mutex{},
 		shutdownCh:        make(chan struct{}),
@@ -220,7 +222,7 @@ func (sa *ShutdownActions) recordError(err error) {
 	}
 
 	sa.mutex.Lock()
-	if !sa.isShutdownComplete {
+	if !sa.isShutdownComplete && (!sa.discardErrorOverflow || len(sa.errorCh) < cap(sa.errorCh)) {
 		sa.errorCh <- err
 	}
 	sa.mutex.Unlock()
@@ -276,12 +278,13 @@ func (sa *ShutdownActions) stopListening() {
 
 // config represents configuration for initialising the shutdown actions.
 type config struct {
-	errorCh             chan<- error         // errorCh is the channel that all errors will be sent to
-	order               Order                // order represents the order actions will be performed on shutdown
-	onSignalFunc        func(os.Signal)      // onSignalFunc gets called if a signal is received
-	strategy            PostShutdownStrategy // strategy contains the post shutdown strategy
-	shutdownOnAnySignal bool                 // shutdownOnAnySignal indicates if the shutdown should be triggered by any signal
-	shutdownOnSignals   []os.Signal          // shutdownOnSignals stores the specific signals that should trigger shutdown
+	errorCh              chan<- error         // errorCh is the channel that all errors will be sent to
+	discardErrorOverflow bool                 // discardErrorOverflow determines if errors should be discarded if the len of the channel will exceed the capacity
+	order                Order                // order represents the order actions will be performed on shutdown
+	onSignalFunc         func(os.Signal)      // onSignalFunc gets called if a signal is received
+	strategy             PostShutdownStrategy // strategy contains the post shutdown strategy
+	shutdownOnAnySignal  bool                 // shutdownOnAnySignal indicates if the shutdown should be triggered by any signal
+	shutdownOnSignals    []os.Signal          // shutdownOnSignals stores the specific signals that should trigger shutdown
 }
 
 // Option represents an option of the shutdown actions.
@@ -316,13 +319,18 @@ func ShutdownOnSignals(signals ...os.Signal) Option {
 // UseErrorChan includes an error channel that errors from actions will
 // be sent to. The channel is closed when the shutdown is completed. Any
 // error from an action executed after shutdown is complete is discarded.
-func UseErrorChan(ch chan<- error) Option {
+//
+// If discard overflow is set to true then errors will be discarded when
+// the length of the channel would exceed the capacity by sending an
+// error.
+func UseErrorChan(ch chan<- error, discardOverflow bool) Option {
 	if ch == nil {
 		panic("channel must not be nil")
 	}
 
 	return func(c *config) {
 		c.errorCh = ch
+		c.discardErrorOverflow = discardOverflow
 	}
 }
 
