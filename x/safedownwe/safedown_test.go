@@ -233,6 +233,52 @@ func TestShutdownActions_AddActions(t *testing.T) {
 	})
 }
 
+// TestShutdownActions_AddActionsWithErrors tests the behaviour of the AddActionsWithErrors.
+func TestShutdownActions_AddActionsWithErrors(t *testing.T) {
+	// Testing that a single added action is performed on shutdown
+	t.Run("single", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedownwe.NewShutdownActions()
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, fmt.Errorf("error")))
+		sa.Shutdown()
+	})
+
+	// Testing that multiple actions added in one call are performed
+	// on shutdown.
+	t.Run("multiple_inputs", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedownwe.NewShutdownActions()
+
+		sa.AddActionsWithErrors(
+			createTestableShutdownActionWithError(t, wg, counter, 3, fmt.Errorf("error")),
+			createTestableShutdownActionWithError(t, wg, counter, 2, fmt.Errorf("error")),
+			createTestableShutdownActionWithError(t, wg, counter, 1, fmt.Errorf("error")),
+		)
+		sa.Shutdown()
+	})
+
+	// Testing that actions added in multiple call are performed
+	// on shutdown.
+	t.Run("multiple calls", func(t *testing.T) {
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
+
+		sa := safedownwe.NewShutdownActions()
+
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 3, fmt.Errorf("error")))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 2, fmt.Errorf("error")))
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, fmt.Errorf("error")))
+		sa.Shutdown()
+	})
+}
+
 // TestShutdownActions_Shutdown tests the behaviour of the shutdown method.
 func TestShutdownActions_Shutdown(t *testing.T) {
 	// Testing that all shutdown actions are performed.
@@ -703,6 +749,19 @@ func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *ato
 		counter.Add(1)
 		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
 		wg.Done()
+	}
+}
+
+// createTestableShutdownActionWithError creates an action that returns an error
+// to be used in tests. The counter is included to ensure that the actions occur
+// the in the correct order.
+func createTestableShutdownActionWithError(t *testing.T, wg *sync.WaitGroup, counter *atomic.Int32, expectedValue int32, err error) func() error {
+	wg.Add(1)
+	return func() error {
+		counter.Add(1)
+		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
+		wg.Done()
+		return err
 	}
 }
 

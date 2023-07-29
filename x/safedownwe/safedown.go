@@ -121,6 +121,21 @@ func (sa *ShutdownActions) AddActions(actions ...func()) {
 	}
 }
 
+// AddActionsWithErrors adds actions that return that are to be performed when
+// Shutdown is called.
+//
+// If Shutdown has already been called or trigger via a signal then the handling
+// of the actions will depend on the post-shutdown strategy.
+func (sa *ShutdownActions) AddActionsWithErrors(actions ...func() error) {
+	converted := make([]func(), len(actions))
+	for i := range actions {
+		action := actions[i]
+		converted[i] = func() { _ = action() }
+	}
+
+	sa.AddActions(converted...)
+}
+
 // Shutdown will perform all actions that have been added.
 //
 // This is an idempotent method and successive calls will have no affect.
