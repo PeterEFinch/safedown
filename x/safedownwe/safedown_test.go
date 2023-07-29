@@ -446,7 +446,7 @@ func TestShutdownOnSignals(t *testing.T) {
 func TestUseErrorChan(t *testing.T) {
 	// Tests that if a single error occurs it is sent to the
 	// error channel.
-	t.Run("single_errors", func(t *testing.T) {
+	t.Run("single_error", func(t *testing.T) {
 		counter := new(atomic.Int32)
 		wg := new(sync.WaitGroup)
 		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
@@ -556,21 +556,19 @@ func TestUseErrorChan(t *testing.T) {
 		assertErrorsInChan(t, ch, err1, err2)
 	})
 
-	// Tests that if a nil channel is used the option will panic.
+	// Tests that if a nil channel is used errors are discarded
 	t.Run("nil_channel", func(t *testing.T) {
-		defer func() {
-			var panicked bool
-			if r := recover(); r != nil {
-				panicked = true
-			}
+		counter := new(atomic.Int32)
+		wg := new(sync.WaitGroup)
+		defer assertWaitGroupDoneBeforeDeadline(t, wg, time.Now().Add(time.Second))
 
-			if !panicked {
-				t.Log("safedownwe.UseErrorChan was expected to panic")
-				t.Fail()
-			}
-		}()
+		sa := safedownwe.NewShutdownActions(
+			safedownwe.UseErrorChan(nil, false),
+		)
 
-		safedownwe.UseErrorChan(nil, false)
+		err := fmt.Errorf("error")
+		sa.AddActionsWithErrors(createTestableShutdownActionWithError(t, wg, counter, 1, err))
+		sa.Shutdown()
 	})
 }
 

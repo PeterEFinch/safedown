@@ -327,10 +327,6 @@ func ShutdownOnSignals(signals ...os.Signal) Option {
 // the length of the channel would exceed the capacity by sending an
 // error.
 func UseErrorChan(ch chan<- error, discardOverflow bool) Option {
-	if ch == nil {
-		panic("channel must not be nil")
-	}
-
 	return func(c *config) {
 		c.errorCh = ch
 		c.discardErrorOverflow = discardOverflow
