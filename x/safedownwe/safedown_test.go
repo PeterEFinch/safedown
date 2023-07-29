@@ -526,7 +526,7 @@ func TestUseErrorChan(t *testing.T) {
 
 	// Tests that the channel closes.
 	t.Run("channel_closes", func(t *testing.T) {
-		ch := make(chan error, 0)
+		ch := make(chan error)
 		sa := safedownwe.NewShutdownActions(
 			safedownwe.UseErrorChan(ch, false),
 		)
