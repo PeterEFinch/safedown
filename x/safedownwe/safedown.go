@@ -50,7 +50,7 @@ type ShutdownActions struct {
 	mutex                     *sync.Mutex   // mutex prevents clashes when shared across goroutines
 	isPerformingStoredActions bool          // isPerformingStoredActions is true if and only if the stored actions are being performed or just about to be performed
 	isShutdownTriggered       bool          // isShutdownTriggered is true if and only if shutdown has been triggered
-	isShutdownComplete        bool          // isShutdownComplete is true if shutdown has been triggered and all stored actions have been performed
+	isShutdownComplete        bool          // isShutdownComplete is true if shutdown is considered complete
 	shutdownCh                chan struct{} // shutdownCh will be closed when shutdown has been completed
 	shutdownOnce              *sync.Once    // shutdownOnce is used to ensure that the shutdown method is idempotent
 	stopListeningCh           chan struct{} // stopListeningCh can be closed to indicate that signals should no longer be listened for
@@ -200,7 +200,6 @@ func (sa *ShutdownActions) performStoredActions() {
 		switch {
 		case len(sa.actions) == 0:
 			sa.isPerformingStoredActions = false
-			sa.isShutdownComplete = true
 			sa.mutex.Unlock()
 			return
 		case sa.order == FirstInLastDone:
@@ -238,6 +237,10 @@ func (sa *ShutdownActions) shutdown() {
 		sa.mutex.Unlock()
 
 		sa.performStoredActions()
+
+		sa.mutex.Lock()
+		sa.isShutdownComplete = true
+		sa.mutex.Unlock()
 
 		if sa.errorCh != nil {
 			close(sa.errorCh)
