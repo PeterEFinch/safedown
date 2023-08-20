@@ -744,3 +744,104 @@ func sendOSSignalToSelf(signal os.Signal) {
 }
 
 // endregion
+
+// region Benchmarks
+
+func BenchmarkNewShutdownActions(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = safedown.NewShutdownActions()
+	}
+}
+
+func BenchmarkShutdownActions_AddActions(b *testing.B) {
+	b.Run("single_action", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa := safedown.NewShutdownActions()
+			sa.AddActions(func() {})
+		}
+	})
+
+	b.Run("multiple_actions_in_one_call", func(b *testing.B) {
+		actions := make([]func(), 100)
+		for i := range actions {
+			actions[i] = func() {}
+		}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa := safedown.NewShutdownActions()
+			sa.AddActions(actions...)
+		}
+	})
+
+	b.Run("multiple_actions_in_multiple_calls", func(b *testing.B) {
+		actions := make([]func(), 100)
+		for i := range actions {
+			actions[i] = func() {}
+		}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa := safedown.NewShutdownActions()
+			for _, action := range actions {
+				sa.AddActions(action)
+			}
+		}
+	})
+}
+
+func BenchmarkShutdownActions_Shutdown(b *testing.B) {
+	b.Run("no_actions", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa := safedown.NewShutdownActions()
+			sa.Shutdown()
+		}
+	})
+
+	b.Run("single_action", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa := safedown.NewShutdownActions()
+			sa.AddActions(func() {})
+			sa.Shutdown()
+		}
+	})
+
+	b.Run("many_actions", func(b *testing.B) {
+		actions := make([]func(), 100)
+		for i := range actions {
+			actions[i] = func() {}
+		}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa := safedown.NewShutdownActions()
+			sa.AddActions(actions...)
+			sa.Shutdown()
+		}
+	})
+
+	b.Run("idempotency", func(b *testing.B) {
+		sa := safedown.NewShutdownActions()
+		sa.AddActions(func() {})
+		sa.Shutdown()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sa.Shutdown()
+		}
+	})
+}
+
+// endregion
