@@ -23,7 +23,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20
+          go-version: '1.20'
 
       - name: Test
         run: go test -v -count=1 -timeout=10s ./...
@@ -62,7 +62,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20
+          go-version: '1.20'
 
       - name: Change to examples module
         run: cd ./examples
@@ -83,7 +83,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20
+          go-version: '1.20'
 
       # Equivalent of locally running the command 'golangci-lint run'
       - name: golangci-lint
