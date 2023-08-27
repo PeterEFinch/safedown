@@ -906,7 +906,7 @@ func assertWaitGroupDoneBeforeDeadline(t *testing.T, wg *sync.WaitGroup, deadlin
 func createTestableShutdownAction(t *testing.T, wg *sync.WaitGroup, counter *int32, expectedValue int32) func() {
 	wg.Add(1)
 	return func() {
-		counter.Add(1)
+		atomic.AddInt32(counter, 1)
 		assertCounterValue(t, counter, expectedValue, "the counter in testable action encountered an issue")
 		wg.Done()
 	}
