@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"sync/atomic"
 )
 
 // Order represents the order the actions will be performed relative to the
@@ -81,9 +80,6 @@ func NewShutdownActions(options ...Option) *ShutdownActions {
 		stopListeningCh:   make(chan struct{}),
 		stopListeningOnce: &sync.Once{},
 	}
-
-	i := new(atomic.Int32)
-	i.Add(1)
 
 	sa.startListening(config.shutdownOnAnySignal, config.shutdownOnSignals)
 	return sa
